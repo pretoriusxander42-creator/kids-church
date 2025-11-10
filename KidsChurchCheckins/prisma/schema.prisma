@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  role         Role     @default(VOLUNTEER)
+  passwordHash String?
+  oauthProvider String?
+  oauthSubject  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  VOLUNTEER
+}
+
+model Parent {
+  id        String   @id @default(cuid())
+  name      String
+  mobile    String   @unique
+  email     String?
+  crcMember Boolean  @default(false)
+  homecell  String?
+  area      String?
+  children  Child[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Child {
+  id                String    @id @default(cuid())
+  firstName         String
+  lastName          String?
+  dob               DateTime?
+  gender            String?
+  grade             Int?
+  className         String?
+  specialNeedsFlag  Boolean   @default(false)
+  allergies         String?
+  notes             String?
+  archivedAt        DateTime? 
+  firstVisitDate    DateTime?
+  parentId          String
+  parent            Parent    @relation(fields: [parentId], references: [id])
+  attendances       Attendance[]
+  specialFriend     SpecialFriendProfile?
+  communications    CommunicationLog[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Attendance {
+  id          String   @id @default(cuid())
+  child       Child    @relation(fields: [childId], references: [id])
+  childId     String
+  date        DateTime
+  serviceTime String
+  className   String
+  tagNumber   Int
+  signInTs    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SpecialFriendProfile {
+  id         String  @id @default(cuid())
+  child      Child   @relation(fields: [childId], references: [id])
+  childId    String  @unique
+  questionnaire Json?
+  followUps  FollowUpAction[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model FollowUpAction {
+  id          String   @id @default(cuid())
+  profile     SpecialFriendProfile @relation(fields: [profileId], references: [id])
+  profileId   String
+  contacted   Boolean  @default(false)
+  date        DateTime?
+  progress    String?
+  escalate    Boolean  @default(false)
+  actionTaken String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CommunicationLog {
+  id           String   @id @default(cuid())
+  child        Child    @relation(fields: [childId], references: [id])
+  childId      String
+  message      String
+  attachments  String?  // could be S3/URL JSON later
+  mentions     String?  // JSON array of user ids / @mentions
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SystemFlag {
+  id             String   @id @default(cuid())
+  childId        String   @unique
+  child          Child    @relation(fields: [childId], references: [id])
+  irregular      Boolean  @default(false)
+  lastAttendedAt DateTime?
+  reason         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model TagUsage {
+  id        String   @id @default(cuid())
+  date      DateTime
+  tagNumber Int
+  createdAt DateTime @default(now())
+  @@unique([date, tagNumber])
+}
+
+model TagOverrideLog {
+  id               String   @id @default(cuid())
+  date             DateTime
+  tagNumber        Int
+  previousTagUsageId String?
+  note             String?
+  createdByUserId  String?
+  createdAt        DateTime @default(now())
+}
+
+model ImportJob {
+  id         String   @id @default(cuid())
+  startedAt  DateTime?
+  completedAt DateTime?
+  status     String
+  filePath   String?
+  errors     String?
+  createdAt  DateTime @default(now())
+}
+
+model BackupJob {
+  id         String   @id @default(cuid())
+  startedAt  DateTime?
+  completedAt DateTime?
+  filePath   String?
+  status     String
+  createdAt  DateTime @default(now())
+}
