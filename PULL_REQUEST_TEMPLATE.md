@@ -1,0 +1,3 @@
+# Description of changes
+
+This PR adds developer tooling and CI required for Milestone A1. Files included: README.md, package.json, tsconfig.json, .eslintrc.cjs, .prettierrc, .gitignore, .env.example, .github/workflows/ci.yml, src/server.ts, src/middleware/auth.ts, src/routes/health.ts, src/routes/app.ts. CI provisions Postgres service for later PRs, builds TypeScript, and runs unit tests. The PR implements a minimal Express server with /health and protected /app endpoints (JWT auth). This is the first small PR per the Milestone A plan.
