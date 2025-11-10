@@ -1,9 +1,10 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
 
+// Note: .js extensions required for ES module imports in TypeScript
 import healthRouter from './routes/health.js';
 import appRouter from './routes/app.js';
 
@@ -27,7 +28,7 @@ app.use('/health', healthRouter);
 app.use('/app', appRouter);
 
 // Generic error handler
-app.use((err: any, _req: any, res: any, _next: any) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   res.status(500).json({ error: err?.message || 'Internal server error' });
 });

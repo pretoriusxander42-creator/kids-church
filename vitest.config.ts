@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    // Exclude KidsChurchCheckins - it's a separate project in this monorepo
     exclude: ['KidsChurchCheckins/**'],
   },
 });

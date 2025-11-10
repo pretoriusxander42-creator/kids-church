@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
+export interface JwtPayload {
+  sub: string;
+  role?: string;
+  [key: string]: unknown;
+}
+
 export interface AuthRequest extends Request {
-  user?: {
-    sub: string;
-    role?: string;
-    [key: string]: any;
-  };
+  user?: JwtPayload;
 }
 
 export const requireAuth = (
@@ -23,7 +25,7 @@ export const requireAuth = (
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
     const secret = process.env.JWT_SECRET || 'dev-secret';
 
-    const decoded = jwt.verify(token, secret) as any;
+    const decoded = jwt.verify(token, secret) as JwtPayload;
     req.user = decoded;
     next();
   } catch (error) {
