@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kids Church Check-in System</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">Kids Church Check-in</h1>
+                <nav class="nav" id="mainNav" style="display: none;">
+                    <button class="btn-secondary" id="logoutBtn">Logout</button>
+                </nav>
+            </div>
+        </header>
+
+        <main class="main">
+            <div id="loginSection" class="auth-section">
+                <div class="card">
+                    <h2>Welcome Back</h2>
+                    <p class="subtitle">Sign in to access the check-in system</p>
+
+                    <form id="loginForm" class="form">
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                required
+                                placeholder="Enter your email"
+                                autocomplete="email"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                required
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                            >
+                        </div>
+
+                        <div id="errorMessage" class="error-message" role="alert" aria-live="polite"></div>
+
+                        <button type="submit" class="btn-primary" id="loginButton">
+                            Sign In
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="dashboardSection" class="dashboard" style="display: none;">
+                <div class="welcome-banner">
+                    <h2 id="welcomeMessage">Welcome to Dashboard</h2>
+                    <p class="subtitle">Manage check-ins and view attendance</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background-color: #e3f2fd;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1976d2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3 class="stat-number">0</h3>
+                            <p class="stat-label">Total Children</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background-color: #e8f5e9;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#388e3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3 class="stat-number">0</h3>
+                            <p class="stat-label">Today's Check-ins</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background-color: #fff3e0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f57c00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3 class="stat-number">0</h3>
+                            <p class="stat-label">This Week</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background-color: #fce4ec;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c2185b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <h3 class="stat-number">0</h3>
+                            <p class="stat-label">Total Parents</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions-section">
+                    <h3>Quick Actions</h3>
+                    <div class="action-grid">
+                        <button class="action-card" onclick="alert('Check-in feature coming soon!')">
+                            <div class="action-icon" style="background-color: #e3f2fd;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1976d2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="8.5" cy="7" r="4"></circle>
+                                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                                    <line x1="23" y1="11" x2="17" y2="11"></line>
+                                </svg>
+                            </div>
+                            <h4>New Check-in</h4>
+                            <p>Check in a child for today's service</p>
+                        </button>
+
+                        <button class="action-card" onclick="alert('Parent registration coming soon!')">
+                            <div class="action-icon" style="background-color: #e8f5e9;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#388e3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="8.5" cy="7" r="4"></circle>
+                                    <polyline points="17 11 19 13 23 9"></polyline>
+                                </svg>
+                            </div>
+                            <h4>Register Parent</h4>
+                            <p>Add a new parent to the system</p>
+                        </button>
+
+                        <button class="action-card" onclick="alert('Child registration coming soon!')">
+                            <div class="action-icon" style="background-color: #fff3e0;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f57c00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="8" r="7"></circle>
+                                    <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+                                </svg>
+                            </div>
+                            <h4>Register Child</h4>
+                            <p>Add a new child profile</p>
+                        </button>
+
+                        <button class="action-card" onclick="alert('Reports feature coming soon!')">
+                            <div class="action-icon" style="background-color: #f3e5f5;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#7b1fa2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                                </svg>
+                            </div>
+                            <h4>View Reports</h4>
+                            <p>Access attendance reports and analytics</p>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2025 Kids Church Check-in System. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

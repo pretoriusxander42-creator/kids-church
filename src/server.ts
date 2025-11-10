@@ -1,12 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
 
 // Note: .js extensions required for ES module imports in TypeScript
 import healthRouter from './routes/health.js';
 import appRouter from './routes/app.js';
+import authRouter from './routes/auth.js';
 
 dotenv.config();
 
@@ -14,7 +14,7 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(json());
+app.use(express.json());
 app.use(
   cookieSession({
     name: 'session',
@@ -23,8 +23,12 @@ app.use(
   })
 );
 
+// Serve static files
+app.use(express.static('public'));
+
 // Routes
 app.use('/health', healthRouter);
+app.use('/auth', authRouter);
 app.use('/app', appRouter);
 
 // Generic error handler
