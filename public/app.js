@@ -152,13 +152,35 @@ if (loginForm) {
 }
 
 if (registerForm) {
+    // Password strength indicator
+    const passwordInput = document.getElementById('registerPassword');
+    const passwordStrength = document.createElement('div');
+    passwordStrength.id = 'passwordStrength';
+    passwordStrength.style.marginTop = '0.5rem';
+    passwordStrength.style.fontSize = '0.9rem';
+    passwordStrength.style.color = '#64748b';
+    passwordInput.parentNode.appendChild(passwordStrength);
+
+    passwordInput.addEventListener('input', () => {
+        const val = passwordInput.value;
+        let strengthMsg = '';
+        if (val.length < 8) strengthMsg = 'At least 8 characters.';
+        else if (!/[A-Z]/.test(val)) strengthMsg = 'Add an uppercase letter.';
+        else if (!/[a-z]/.test(val)) strengthMsg = 'Add a lowercase letter.';
+        else if (!/[0-9]/.test(val)) strengthMsg = 'Add a number.';
+        else if (!/[!@#$%^&*(),.?":{}|<>]/.test(val)) strengthMsg = 'Add a special character.';
+        else strengthMsg = 'Strong password!';
+        passwordStrength.textContent = strengthMsg;
+        passwordStrength.style.color = strengthMsg === 'Strong password!' ? '#10b981' : '#64748b';
+    });
+
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         hideRegisterError();
 
         const name = document.getElementById('registerName').value.trim();
         const email = document.getElementById('registerEmail').value.trim();
-        const password = document.getElementById('registerPassword').value.trim();
+        const password = passwordInput.value.trim();
 
         console.log('Register attempt:', email);
 
@@ -167,8 +189,25 @@ if (registerForm) {
             return;
         }
 
-        if (password.length < 6) {
-            showRegisterError('Password must be at least 6 characters');
+        // Password strength validation (client-side)
+        if (password.length < 8) {
+            showRegisterError('Password must be at least 8 characters');
+            return;
+        }
+        if (!/[A-Z]/.test(password)) {
+            showRegisterError('Password must contain an uppercase letter');
+            return;
+        }
+        if (!/[a-z]/.test(password)) {
+            showRegisterError('Password must contain a lowercase letter');
+            return;
+        }
+        if (!/[0-9]/.test(password)) {
+            showRegisterError('Password must contain a number');
+            return;
+        }
+        if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+            showRegisterError('Password must contain a special character');
             return;
         }
 

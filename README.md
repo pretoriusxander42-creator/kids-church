@@ -13,7 +13,13 @@ This repository implements the Kids Church Check-in system with TypeScript, Expr
 
 ## How to run locally
 
-1. Copy `.env.example` → `.env` and set your environment variables
+1. Copy `.env.example` → `.env` and set your environment variables:
+   - VITE_SUPABASE_URL: Your Supabase project URL
+   - VITE_SUPABASE_ANON_KEY: Your Supabase anon key
+   - PORT: Server port (default 4000)
+   - SESSION_SECRET: Strong random string for session encryption
+   - JWT_SECRET: Strong random string for JWT signing
+   - DATABASE_URL: Your Postgres connection string
 2. Install dependencies:
    ```bash
    npm ci
