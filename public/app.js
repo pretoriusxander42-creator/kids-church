@@ -2,28 +2,62 @@ const API_BASE = '';
 
 let currentUser = null;
 
-const loginSection = document.getElementById('loginSection');
+const authSection = document.getElementById('authSection');
 const dashboardSection = document.getElementById('dashboardSection');
 const loginForm = document.getElementById('loginForm');
-const errorMessage = document.getElementById('errorMessage');
+const registerForm = document.getElementById('registerForm');
+const loginErrorMessage = document.getElementById('loginErrorMessage');
+const registerErrorMessage = document.getElementById('registerErrorMessage');
 const loginButton = document.getElementById('loginButton');
+const registerButton = document.getElementById('registerButton');
 const logoutBtn = document.getElementById('logoutBtn');
 const mainNav = document.getElementById('mainNav');
 const welcomeMessage = document.getElementById('welcomeMessage');
 
-function showError(message) {
-    errorMessage.textContent = message;
-    errorMessage.classList.add('active');
-    console.error('Error shown:', message);
+const tabButtons = document.querySelectorAll('.tab-button');
+
+tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const tab = button.dataset.tab;
+
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+
+        document.querySelectorAll('[data-tab-content]').forEach(form => {
+            form.style.display = 'none';
+        });
+
+        document.querySelector(`[data-tab-content="${tab}"]`).style.display = 'block';
+
+        hideLoginError();
+        hideRegisterError();
+    });
+});
+
+function showLoginError(message) {
+    loginErrorMessage.textContent = message;
+    loginErrorMessage.classList.add('active');
+    console.error('Login error:', message);
 }
 
-function hideError() {
-    errorMessage.textContent = '';
-    errorMessage.classList.remove('active');
+function hideLoginError() {
+    loginErrorMessage.textContent = '';
+    loginErrorMessage.classList.remove('active');
+}
+
+function showRegisterError(message) {
+    registerErrorMessage.textContent = message;
+    registerErrorMessage.classList.add('active');
+    console.error('Register error:', message);
+}
+
+function hideRegisterError() {
+    registerErrorMessage.textContent = '';
+    registerErrorMessage.classList.remove('active');
 }
 
 function showDashboard() {
-    loginSection.style.display = 'none';
+    authSection.style.display = 'none';
     dashboardSection.style.display = 'block';
     mainNav.style.display = 'flex';
 
@@ -33,18 +67,18 @@ function showDashboard() {
     console.log('Dashboard shown');
 }
 
-function showLogin() {
-    loginSection.style.display = 'flex';
+function showAuth() {
+    authSection.style.display = 'flex';
     dashboardSection.style.display = 'none';
     mainNav.style.display = 'none';
     currentUser = null;
-    console.log('Login form shown');
+    console.log('Auth form shown');
 }
 
 async function checkAuth() {
     const token = localStorage.getItem('token');
     if (!token) {
-        showLogin();
+        showAuth();
         return;
     }
 
@@ -61,27 +95,27 @@ async function checkAuth() {
             showDashboard();
         } else {
             localStorage.removeItem('token');
-            showLogin();
+            showAuth();
         }
     } catch (error) {
         console.error('Auth check failed:', error);
         localStorage.removeItem('token');
-        showLogin();
+        showAuth();
     }
 }
 
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        hideError();
+        hideLoginError();
 
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value.trim();
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
 
         console.log('Login attempt:', email);
 
         if (!email || !password) {
-            showError('Please enter both email and password');
+            showLoginError('Please enter both email and password');
             return;
         }
 
@@ -105,24 +139,76 @@ if (loginForm) {
                 currentUser = data.user;
                 showDashboard();
             } else {
-                showError(data.error || 'Invalid credentials. Please try again.');
+                showLoginError(data.error || 'Invalid credentials. Please try again.');
             }
         } catch (error) {
             console.error('Login error:', error);
-            showError('Connection error. Please check your network and try again.');
+            showLoginError('Connection error. Please check your network and try again.');
         } finally {
             loginButton.disabled = false;
             loginButton.textContent = 'Sign In';
         }
     });
-} else {
-    console.warn('Login form not found');
+}
+
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideRegisterError();
+
+        const name = document.getElementById('registerName').value.trim();
+        const email = document.getElementById('registerEmail').value.trim();
+        const password = document.getElementById('registerPassword').value.trim();
+
+        console.log('Register attempt:', email);
+
+        if (!name || !email || !password) {
+            showRegisterError('Please fill in all fields');
+            return;
+        }
+
+        if (password.length < 6) {
+            showRegisterError('Password must be at least 6 characters');
+            return;
+        }
+
+        registerButton.disabled = true;
+        registerButton.textContent = 'Creating account...';
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, email, password })
+            });
+
+            const data = await response.json();
+            console.log('Register response:', response.status, data);
+
+            if (response.ok) {
+                localStorage.setItem('token', data.token);
+                currentUser = data.user;
+                showDashboard();
+            } else {
+                showRegisterError(data.error || 'Registration failed. Please try again.');
+            }
+        } catch (error) {
+            console.error('Register error:', error);
+            showRegisterError('Connection error. Please check your network and try again.');
+        } finally {
+            registerButton.disabled = false;
+            registerButton.textContent = 'Create Account';
+        }
+    });
 }
 
 if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
         localStorage.removeItem('token');
-        showLogin();
+        showAuth();
+        tabButtons[0].click();
     });
 }
 
