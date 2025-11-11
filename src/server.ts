@@ -19,11 +19,18 @@ const requiredEnv = [
   'PORT',
   'SESSION_SECRET',
   'JWT_SECRET',
-  'DATABASE_URL',
 ];
-const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+const missingEnv = requiredEnv.filter((key) => !process.env[key] || process.env[key]?.includes('your-'));
 if (missingEnv.length > 0) {
-  console.error('Missing required environment variables:', missingEnv.join(', '));
+  console.error('\n❌ Missing or invalid environment variables:');
+  console.error('   ' + missingEnv.join(', '));
+  console.error('\n📝 Please update your .env file with actual values.');
+  console.error('   See .env.example for reference.');
+  console.error('\nFor Supabase credentials:');
+  console.error('   1. Go to https://app.supabase.com');
+  console.error('   2. Select your project');
+  console.error('   3. Go to Settings → API');
+  console.error('   4. Copy URL and anon key\n');
   process.exit(1);
 }
 
