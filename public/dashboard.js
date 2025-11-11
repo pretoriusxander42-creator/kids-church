@@ -73,16 +73,10 @@ const DashboardNav = {
 
   async loadDashboardStats() {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/statistics/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const stats = await response.json();
-        this.updateStatsDisplay(stats);
+      const result = await Utils.apiRequest('/api/statistics/dashboard');
+      
+      if (result.success) {
+        this.updateStatsDisplay(result.data);
       }
     } catch (error) {
       console.error('Failed to load stats:', error);
@@ -123,30 +117,33 @@ const DashboardNav = {
   },
 
   async loadRecentCheckIns() {
-    try {
-      const token = localStorage.getItem('token');
-      const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/checkins?date=${today}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+    const container = document.getElementById('recentCheckIns');
+    if (!container) return;
 
-      if (response.ok) {
-        const checkIns = await response.json();
-        const container = document.getElementById('recentCheckIns');
-        if (container) {
-          container.innerHTML = checkIns.slice(0, 10).map(ci => `
-            <div class="checkin-item">
-              <span>${ci.children?.first_name} ${ci.children?.last_name}</span>
-              <span>${new Date(ci.check_in_time).toLocaleTimeString()}</span>
-              <span class="status ${ci.check_out_time ? 'checked-out' : 'checked-in'}">
-                ${ci.check_out_time ? 'Checked Out' : 'Checked In'}
-              </span>
-            </div>
-          `).join('') || '<p>No check-ins yet today</p>';
-        }
+    Utils.showLoading(container, 'Loading recent check-ins...');
+
+    const today = new Date().toISOString().split('T')[0];
+    const result = await Utils.apiRequest(`/api/checkins?date=${today}`);
+
+    if (result.success) {
+      const checkIns = result.data;
+      
+      if (checkIns.length === 0) {
+        Utils.showEmpty(container, 'No check-ins yet today');
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load recent check-ins:', error);
+
+      container.innerHTML = checkIns.slice(0, 10).map(ci => `
+        <div class="checkin-item">
+          <span>${ci.children?.first_name} ${ci.children?.last_name}</span>
+          <span>${Utils.formatTime(ci.check_in_time)}</span>
+          <span class="status ${ci.check_out_time ? 'checked-out' : 'checked-in'}">
+            ${ci.check_out_time ? 'Checked Out' : 'Checked In'}
+          </span>
+        </div>
+      `).join('');
+    } else {
+      Utils.showError(container, 'Failed to load recent check-ins', 'DashboardNav.loadRecentCheckIns()');
     }
   },
 
@@ -176,46 +173,51 @@ const DashboardNav = {
     const resultsDiv = document.getElementById('childResults');
     let selectedChild = null;
 
-    searchInput?.addEventListener('input', async (e) => {
-      const query = e.target.value.trim();
+    const debouncedSearch = Utils.debounce(async (query) => {
       if (query.length < 2) {
         resultsDiv.innerHTML = '';
         return;
       }
 
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/children`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+      Utils.showLoading(resultsDiv, 'Searching...');
 
-        if (response.ok) {
-          const data = await response.json();
-          const children = data.data || [];
-          const filtered = children.filter(child => 
-            `${child.first_name} ${child.last_name}`.toLowerCase().includes(query.toLowerCase())
-          );
+      const result = await Utils.apiRequest('/api/children');
 
-          resultsDiv.innerHTML = filtered.map(child => `
-            <div class="result-item" data-child='${JSON.stringify(child)}'>
-              <strong>${child.first_name} ${child.last_name}</strong>
-              <span>${child.date_of_birth}</span>
-            </div>
-          `).join('') || '<p>No children found</p>';
+      if (result.success) {
+        const children = result.data.data || [];
+        const filtered = children.filter(child => 
+          `${child.first_name} ${child.last_name}`.toLowerCase().includes(query.toLowerCase())
+        );
 
-          // Bind click events
-          resultsDiv.querySelectorAll('.result-item').forEach(item => {
-            item.addEventListener('click', () => {
-              selectedChild = JSON.parse(item.dataset.child);
-              this.displaySelectedChild(selectedChild);
-              resultsDiv.innerHTML = '';
-              searchInput.value = '';
-            });
-          });
+        if (filtered.length === 0) {
+          Utils.showEmpty(resultsDiv, 'No children found');
+          return;
         }
-      } catch (error) {
-        console.error('Search failed:', error);
+
+        resultsDiv.innerHTML = filtered.map(child => `
+          <div class="result-item" data-child='${JSON.stringify(child)}'>
+            <strong>${child.first_name} ${child.last_name}</strong>
+            <span>${child.date_of_birth}</span>
+          </div>
+        `).join('');
+
+        // Bind click events
+        resultsDiv.querySelectorAll('.result-item').forEach(item => {
+          item.addEventListener('click', () => {
+            selectedChild = JSON.parse(item.dataset.child);
+            this.displaySelectedChild(selectedChild);
+            resultsDiv.innerHTML = '';
+            searchInput.value = '';
+          });
+        });
+      } else {
+        Utils.showError(resultsDiv, 'Search failed');
       }
+    }, 300);
+
+    searchInput?.addEventListener('input', (e) => {
+      const query = e.target.value.trim();
+      debouncedSearch(query);
     });
 
     const form = document.getElementById('checkinForm');
@@ -243,65 +245,54 @@ const DashboardNav = {
   },
 
   async performCheckIn(child) {
-    try {
-      const token = localStorage.getItem('token');
-      const user = currentUser; // From main app.js
-      
-      const response = await fetch('/api/checkins', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          child_id: child.id,
-          parent_id: user.id, // This should be fetched properly
-          checked_in_by: user.id,
-          class_attended: child.class_assignment || 'general',
-        })
-      });
+    const user = window.currentUser; // From main app.js
+    
+    const result = await Utils.apiRequest('/api/checkins', {
+      method: 'POST',
+      body: JSON.stringify({
+        child_id: child.id,
+        parent_id: user.id, // This should be fetched properly
+        checked_in_by: user.id,
+        class_attended: child.class_assignment || 'general',
+      })
+    });
 
-      if (response.ok) {
-        const result = await response.json();
-        alert(`Check-in successful! Security Code: ${result.security_code}`);
-        this.switchView('overview');
-      } else {
-        const error = await response.json();
-        alert('Check-in failed: ' + error.error);
-      }
-    } catch (error) {
-      console.error('Check-in error:', error);
-      alert('Check-in failed. Please try again.');
+    if (result.success) {
+      Utils.showToast(`Check-in successful! Security Code: ${result.data.security_code}`, 'success');
+      this.switchView('overview');
+    } else {
+      Utils.showToast(`Check-in failed: ${result.error}`, 'error');
     }
   },
 
   async loadClassesView(content) {
-    content.innerHTML = '<h2>Classes</h2><div id="classList">Loading...</div>';
+    content.innerHTML = '<h2>Classes</h2><div id="classList"></div>';
     
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/classes', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+    const container = document.getElementById('classList');
+    Utils.showLoading(container, 'Loading classes...');
 
-      if (response.ok) {
-        const classes = await response.json();
-        const container = document.getElementById('classList');
-        if (container) {
-          container.innerHTML = classes.map(cls => `
-            <div class="class-card">
-              <h3>${cls.name}</h3>
-              <p>${cls.description || ''}</p>
-              <p><strong>Type:</strong> ${cls.type}</p>
-              <p><strong>Capacity:</strong> ${cls.capacity || 'Unlimited'}</p>
-              <p><strong>Location:</strong> ${cls.room_location || 'TBD'}</p>
-              <button class="btn-secondary" onclick="DashboardNav.viewClassDetails('${cls.id}')">View Details</button>
-            </div>
-          `).join('') || '<p>No classes available</p>';
-        }
+    const result = await Utils.apiRequest('/api/classes');
+
+    if (result.success) {
+      const classes = result.data;
+      
+      if (classes.length === 0) {
+        Utils.showEmpty(container, 'No classes available');
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load classes:', error);
+
+      container.innerHTML = classes.map(cls => `
+        <div class="class-card">
+          <h3>${cls.name}</h3>
+          <p>${cls.description || ''}</p>
+          <p><strong>Type:</strong> ${cls.type}</p>
+          <p><strong>Capacity:</strong> ${cls.capacity || 'Unlimited'}</p>
+          <p><strong>Location:</strong> ${cls.room_location || 'TBD'}</p>
+          <button class="btn-secondary" onclick="DashboardNav.viewClassDetails('${cls.id}')">View Details</button>
+        </div>
+      `).join('');
+    } else {
+      Utils.showError(container, 'Failed to load classes', 'DashboardNav.loadClassesView(content)');
     }
   },
 
@@ -310,40 +301,40 @@ const DashboardNav = {
       <div class="ftv-board">
         <h2>First Time Visitors (FTV) Board</h2>
         <p class="subtitle">Children visiting for the first time today</p>
-        <div id="ftvList">Loading...</div>
+        <div id="ftvList"></div>
       </div>
     `;
     this.loadFTVChildren();
   },
 
   async loadFTVChildren() {
-    try {
-      const token = localStorage.getItem('token');
-      const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/checkins?date=${today}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+    const container = document.getElementById('ftvList');
+    Utils.showLoading(container, 'Loading first-time visitors...');
 
-      if (response.ok) {
-        const checkIns = await response.json();
-        const ftvChildren = checkIns.filter(ci => 
-          ci.children?.class_assignment === 'ftv_board'
-        );
+    const today = new Date().toISOString().split('T')[0];
+    const result = await Utils.apiRequest(`/api/checkins?date=${today}`);
 
-        const container = document.getElementById('ftvList');
-        if (container) {
-          container.innerHTML = ftvChildren.map(ci => `
-            <div class="ftv-card">
-              <h3>${ci.children.first_name} ${ci.children.last_name}</h3>
-              <p><strong>Age:</strong> ${this.calculateAge(ci.children.date_of_birth)} years</p>
-              <p><strong>Checked in:</strong> ${new Date(ci.check_in_time).toLocaleTimeString()}</p>
-              <p><strong>Parent Contact:</strong> ${ci.parents?.phone_number || 'N/A'}</p>
-            </div>
-          `).join('') || '<p>No first-time visitors today</p>';
-        }
+    if (result.success) {
+      const checkIns = result.data;
+      const ftvChildren = checkIns.filter(ci => 
+        ci.children?.class_assignment === 'ftv_board'
+      );
+
+      if (ftvChildren.length === 0) {
+        Utils.showEmpty(container, 'No first-time visitors today');
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load FTV children:', error);
+
+      container.innerHTML = ftvChildren.map(ci => `
+        <div class="ftv-card">
+          <h3>${ci.children.first_name} ${ci.children.last_name}</h3>
+          <p><strong>Age:</strong> ${this.calculateAge(ci.children.date_of_birth)} years</p>
+          <p><strong>Checked in:</strong> ${Utils.formatTime(ci.check_in_time)}</p>
+          <p><strong>Parent Contact:</strong> ${ci.parents?.phone_number || 'N/A'}</p>
+        </div>
+      `).join('');
+    } else {
+      Utils.showError(container, 'Failed to load first-time visitors', 'DashboardNav.loadFTVChildren()');
     }
   },
 
@@ -352,39 +343,39 @@ const DashboardNav = {
       <div class="special-needs-board">
         <h2>Special Needs Board</h2>
         <p class="subtitle">Children with special needs currently checked in</p>
-        <div id="specialNeedsList">Loading...</div>
+        <div id="specialNeedsList"></div>
       </div>
     `;
     this.loadSpecialNeedsChildren();
   },
 
   async loadSpecialNeedsChildren() {
-    try {
-      const token = localStorage.getItem('token');
-      const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/checkins?date=${today}&status=checked_in`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+    const container = document.getElementById('specialNeedsList');
+    Utils.showLoading(container, 'Loading special needs children...');
 
-      if (response.ok) {
-        const checkIns = await response.json();
-        const specialNeedsChildren = checkIns.filter(ci => ci.children?.special_needs);
+    const today = new Date().toISOString().split('T')[0];
+    const result = await Utils.apiRequest(`/api/checkins?date=${today}&status=checked_in`);
 
-        const container = document.getElementById('specialNeedsList');
-        if (container) {
-          container.innerHTML = specialNeedsChildren.map(ci => `
-            <div class="special-needs-card">
-              <h3>${ci.children.first_name} ${ci.children.last_name}</h3>
-              <p class="warning"><strong>Special Needs:</strong> Yes</p>
-              ${ci.children.special_needs_details ? `<p>${ci.children.special_needs_details}</p>` : ''}
-              <p><strong>Class:</strong> ${ci.class_attended}</p>
-              <button class="btn-secondary" onclick="DashboardNav.viewSpecialNeedsForm('${ci.children.id}')">View Form</button>
-            </div>
-          `).join('') || '<p>No children with special needs currently checked in</p>';
-        }
+    if (result.success) {
+      const checkIns = result.data;
+      const specialNeedsChildren = checkIns.filter(ci => ci.children?.special_needs);
+
+      if (specialNeedsChildren.length === 0) {
+        Utils.showEmpty(container, 'No children with special needs currently checked in');
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load special needs children:', error);
+
+      container.innerHTML = specialNeedsChildren.map(ci => `
+        <div class="special-needs-card">
+          <h3>${ci.children.first_name} ${ci.children.last_name}</h3>
+          <p class="warning"><strong>Special Needs:</strong> Yes</p>
+          ${ci.children.special_needs_details ? `<p>${ci.children.special_needs_details}</p>` : ''}
+          <p><strong>Class:</strong> ${ci.class_attended}</p>
+          <button class="btn-secondary" onclick="DashboardNav.viewSpecialNeedsForm('${ci.children.id}')">View Form</button>
+        </div>
+      `).join('');
+    } else {
+      Utils.showError(container, 'Failed to load special needs children', 'DashboardNav.loadSpecialNeedsChildren()');
     }
   },
 
