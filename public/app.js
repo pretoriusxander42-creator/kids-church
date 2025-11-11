@@ -14,6 +14,7 @@ const welcomeMessage = document.getElementById('welcomeMessage');
 function showError(message) {
     errorMessage.textContent = message;
     errorMessage.classList.add('active');
+    console.error('Error shown:', message);
 }
 
 function hideError() {
@@ -29,6 +30,7 @@ function showDashboard() {
     if (currentUser) {
         welcomeMessage.textContent = `Welcome, ${currentUser.name || currentUser.email}`;
     }
+    console.log('Dashboard shown');
 }
 
 function showLogin() {
@@ -36,6 +38,7 @@ function showLogin() {
     dashboardSection.style.display = 'none';
     mainNav.style.display = 'none';
     currentUser = null;
+    console.log('Login form shown');
 }
 
 async function checkAuth() {
@@ -67,46 +70,60 @@ async function checkAuth() {
     }
 }
 
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    hideError();
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideError();
 
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
 
-    loginButton.disabled = true;
-    loginButton.textContent = 'Signing in...';
+        console.log('Login attempt:', email);
 
-    try {
-        const response = await fetch(`${API_BASE}/auth/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            localStorage.setItem('token', data.token);
-            currentUser = data.user;
-            showDashboard();
-        } else {
-            showError(data.error || 'Invalid credentials. Please try again.');
+        if (!email || !password) {
+            showError('Please enter both email and password');
+            return;
         }
-    } catch (error) {
-        console.error('Login error:', error);
-        showError('Connection error. Please check your network and try again.');
-    } finally {
-        loginButton.disabled = false;
-        loginButton.textContent = 'Sign In';
-    }
-});
 
-logoutBtn.addEventListener('click', () => {
-    localStorage.removeItem('token');
-    showLogin();
-});
+        loginButton.disabled = true;
+        loginButton.textContent = 'Signing in...';
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+            console.log('Login response:', response.status, data);
+
+            if (response.ok) {
+                localStorage.setItem('token', data.token);
+                currentUser = data.user;
+                showDashboard();
+            } else {
+                showError(data.error || 'Invalid credentials. Please try again.');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            showError('Connection error. Please check your network and try again.');
+        } finally {
+            loginButton.disabled = false;
+            loginButton.textContent = 'Sign In';
+        }
+    });
+} else {
+    console.warn('Login form not found');
+}
+
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('token');
+        showLogin();
+    });
+}
 
 checkAuth();
