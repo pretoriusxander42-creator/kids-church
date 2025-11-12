@@ -1,3 +1,4 @@
+import '../env.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';

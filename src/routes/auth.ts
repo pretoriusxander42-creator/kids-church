@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { validate, schemas } from '../middleware/validation.js';
 import { 
   loginUser, 
   registerUser, 
@@ -25,12 +26,8 @@ const registerLimiter = rateLimit({
   message: { error: 'Too many registration attempts. Please try again later.' },
 });
 
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', loginLimiter, validate(schemas.login), async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
 
   const result = await loginUser(email, password);
 
@@ -41,20 +38,8 @@ router.post('/login', loginLimiter, async (req, res) => {
   return res.json(result);
 });
 
-router.post('/register', registerLimiter, async (req, res) => {
+router.post('/register', registerLimiter, validate(schemas.register), async (req, res) => {
   const { email, password, name } = req.body;
-
-  if (!email || !password || !name) {
-    return res
-      .status(400)
-      .json({ error: 'Email, password, and name are required' });
-  }
-
-  if (password.length < 6) {
-    return res
-      .status(400)
-      .json({ error: 'Password must be at least 6 characters' });
-  }
 
   const result = await registerUser(email, password, name);
 
@@ -89,12 +74,8 @@ router.get('/verify-email/:token', async (req, res) => {
 });
 
 // Resend verification email
-router.post('/resend-verification', async (req, res) => {
+router.post('/resend-verification', validate(schemas.email), async (req, res) => {
   const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
-  }
 
   const result = await resendVerificationEmail(email);
 
@@ -106,12 +87,8 @@ router.post('/resend-verification', async (req, res) => {
 });
 
 // Password reset request
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', validate(schemas.email), async (req, res) => {
   const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
-  }
 
   const result = await requestPasswordReset(email);
 
@@ -126,13 +103,9 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // Reset password with token
-router.post('/reset-password/:token', async (req, res) => {
+router.post('/reset-password/:token', validate(schemas.passwordReset), async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
-
-  if (!token || !password) {
-    return res.status(400).json({ error: 'Token and new password are required' });
-  }
 
   const result = await resetPassword(token, password);
 

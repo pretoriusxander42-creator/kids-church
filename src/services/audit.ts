@@ -1,9 +1,14 @@
+import '../env.js';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.VITE_SUPABASE_ANON_KEY!
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables in audit service');
+}
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface AuditLogEntry {
   user_id: string;

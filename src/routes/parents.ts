@@ -1,6 +1,7 @@
+import '../env.js';
 import { Router } from 'express';
-import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
+import { validate, schemas } from '../middleware/validation.js';
 
 const router = Router();
 
@@ -8,17 +9,6 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.VITE_SUPABASE_ANON_KEY!
 );
-
-// Parent registration schema
-const parentSchema = z.object({
-  user_id: z.string().uuid(),
-  first_name: z.string().min(1),
-  last_name: z.string().min(1),
-  phone_number: z.string().min(10),
-  emergency_contact_name: z.string().optional(),
-  emergency_contact_phone: z.string().optional(),
-  address: z.string().optional(),
-});
 
 // GET all parents
 router.get('/', async (req, res) => {
@@ -71,15 +61,10 @@ router.get('/:id/children', async (req, res) => {
 });
 
 // Register new parent
-router.post('/', async (req, res) => {
-  const parseResult = parentSchema.safeParse(req.body);
-  if (!parseResult.success) {
-    return res.status(400).json({ error: 'Invalid parent data', details: parseResult.error.issues });
-  }
-
+router.post('/', validate(schemas.createParent), async (req, res) => {
   const { data, error } = await supabase
     .from('parents')
-    .insert([parseResult.data])
+    .insert([req.body])
     .select()
     .single();
 
@@ -91,17 +76,12 @@ router.post('/', async (req, res) => {
 });
 
 // UPDATE parent
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(schemas.uuidParam, 'params'), validate(schemas.updateParent), async (req, res) => {
   const { id } = req.params;
-  const parseResult = parentSchema.partial().safeParse(req.body);
-
-  if (!parseResult.success) {
-    return res.status(400).json({ error: 'Invalid parent data', details: parseResult.error.issues });
-  }
 
   const { data, error } = await supabase
     .from('parents')
-    .update({ ...parseResult.data, updated_at: new Date().toISOString() })
+    .update({ ...req.body, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single();

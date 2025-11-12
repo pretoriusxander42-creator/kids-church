@@ -1,6 +1,7 @@
+import '../env.js';
 import { Router } from 'express';
-import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
+import { validate, schemas } from '../middleware/validation.js';
 
 const router = Router();
 
@@ -8,19 +9,6 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.VITE_SUPABASE_ANON_KEY!
 );
-
-// Child registration schema
-const childSchema = z.object({
-  first_name: z.string().min(1),
-  last_name: z.string().min(1),
-  date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  photo_url: z.string().url().optional(),
-  allergies: z.string().optional(),
-  medical_notes: z.string().optional(),
-  special_needs: z.boolean().optional(),
-  special_needs_details: z.string().optional(),
-  class_assignment: z.enum(['nursery', 'toddlers', 'preschool', 'elementary', 'ftv_board']),
-});
 
 // GET all children (with pagination)
 router.get('/', async (req, res) => {
@@ -67,15 +55,10 @@ router.get('/:id', async (req, res) => {
 });
 
 // Register new child
-router.post('/', async (req, res) => {
-  const parseResult = childSchema.safeParse(req.body);
-  if (!parseResult.success) {
-    return res.status(400).json({ error: 'Invalid child data', details: parseResult.error.issues });
-  }
-
+router.post('/', validate(schemas.createChild), async (req, res) => {
   const { data, error } = await supabase
     .from('children')
-    .insert([parseResult.data])
+    .insert([req.body])
     .select()
     .single();
 
@@ -87,17 +70,12 @@ router.post('/', async (req, res) => {
 });
 
 // UPDATE child
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(schemas.uuidParam, 'params'), validate(schemas.updateChild), async (req, res) => {
   const { id } = req.params;
-  const parseResult = childSchema.partial().safeParse(req.body);
-
-  if (!parseResult.success) {
-    return res.status(400).json({ error: 'Invalid child data', details: parseResult.error.issues });
-  }
 
   const { data, error } = await supabase
     .from('children')
-    .update({ ...parseResult.data, updated_at: new Date().toISOString() })
+    .update({ ...req.body, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single();

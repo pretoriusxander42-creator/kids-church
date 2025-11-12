@@ -1,7 +1,9 @@
+import '../env.js';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { logger } from '../middleware/logger.js';
 import { logLogin } from './audit.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from './email.js';
 
@@ -146,17 +148,38 @@ export async function loginUser(email: string, password: string) {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, password_hash')
+      .select('id, email, name, password_hash, failed_login_attempts, locked_until')
       .eq('email', email)
       .single();
 
     if (error || !data) {
+      // Avoid user enumeration
       return { error: 'Invalid credentials' };
+    }
+
+    // Check account lockout
+    const now = new Date();
+    if (data.locked_until && new Date(data.locked_until) > now) {
+      return { error: 'Account temporarily locked due to failed login attempts. Please try again later.' };
     }
 
     const valid = await bcrypt.compare(password, data.password_hash);
     if (!valid) {
-      return { error: 'Invalid credentials' };
+      const attempts = (data.failed_login_attempts || 0) + 1;
+      let update: Record<string, any> = { failed_login_attempts: attempts };
+      let message = 'Invalid credentials';
+
+      if (attempts >= 5) {
+        const lockedUntil = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
+        update = { failed_login_attempts: 0, locked_until: lockedUntil };
+        message = 'Too many failed attempts. Account locked for 15 minutes.';
+        logger.warn({ email, attempts }, 'Account locked due to failed login attempts');
+      } else {
+        logger.warn({ email, attempts }, 'Failed login attempt');
+      }
+
+      await supabase.from('users').update(update).eq('id', data.id);
+      return { error: message };
     }
 
     const token = jwt.sign(
@@ -168,8 +191,16 @@ export async function loginUser(email: string, password: string) {
       { expiresIn: '8h' }
     );
 
+    // Reset failed attempts on success
+    await supabase
+      .from('users')
+      .update({ failed_login_attempts: 0, locked_until: null })
+      .eq('id', data.id);
+
     // Log successful login
     await logLogin(data.id);
+    
+    logger.info({ userId: data.id, email: data.email }, 'Successful login');
 
     return {
       token,

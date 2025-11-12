@@ -5,8 +5,13 @@
  * Checks if all required environment variables are set
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 console.log('🔍 Validating environment configuration...\n');
 
@@ -20,7 +25,7 @@ if (!fs.existsSync(envPath)) {
 }
 
 // Load .env file
-require('dotenv').config();
+dotenv.config();
 
 // Required environment variables
 const required = [

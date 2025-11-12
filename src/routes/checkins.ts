@@ -1,7 +1,8 @@
+import '../env.js';
 import { Router } from 'express';
-import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { validate, schemas } from '../middleware/validation.js';
 import { logCheckIn, logCheckOut } from '../services/audit.js';
 import { sendCheckInNotification, sendCheckOutNotification } from '../services/email.js';
 
@@ -11,21 +12,6 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.VITE_SUPABASE_ANON_KEY!
 );
-
-// Check-in schema
-const checkinSchema = z.object({
-  child_id: z.string().uuid(),
-  parent_id: z.string().uuid(),
-  checked_in_by: z.string().uuid(),
-  class_attended: z.string().min(1),
-  notes: z.string().optional(),
-});
-
-// Checkout schema
-const checkoutSchema = z.object({
-  security_code: z.string().min(4),
-  checked_out_by: z.string().uuid(),
-});
 
 // Generate 6-digit security code
 function generateSecurityCode(): string {
@@ -74,25 +60,20 @@ router.get('/', async (req, res) => {
 });
 
 // Check-in endpoint
-router.post('/', async (req, res) => {
-  const parseResult = checkinSchema.safeParse(req.body);
-  if (!parseResult.success) {
-    return res.status(400).json({ error: 'Invalid check-in data', details: parseResult.error.issues });
-  }
-
+router.post('/', validate(schemas.createCheckin), async (req, res) => {
   const security_code = generateSecurityCode();
 
   const { data, error } = await supabase
     .from('check_ins')
     .insert([{ 
-      ...parseResult.data,
+      ...req.body,
       security_code,
       check_in_time: new Date().toISOString(),
     }])
     .select(`
       *,
-      children (name),
-      parents (name, email)
+      children (first_name, last_name),
+      parents (first_name, last_name, email)
     `)
     .single();
 
@@ -101,7 +82,7 @@ router.post('/', async (req, res) => {
   }
 
   // Log check-in
-  await logCheckIn(parseResult.data.checked_in_by, data.id, parseResult.data.child_id);
+  await logCheckIn(req.body.checked_in_by || 'system', data.id, req.body.child_id);
 
   // Send email notification to parent
   if (data.parents?.email) {
@@ -121,21 +102,16 @@ router.post('/', async (req, res) => {
 });
 
 // Check-out endpoint
-router.post('/:id/checkout', async (req, res) => {
+router.post('/:id/checkout', validate(schemas.uuidParam, 'params'), validate(schemas.checkout), async (req, res) => {
   const { id } = req.params;
-  const parseResult = checkoutSchema.safeParse(req.body);
-
-  if (!parseResult.success) {
-    return res.status(400).json({ error: 'Invalid checkout data', details: parseResult.error.issues });
-  }
 
   // Verify security code
   const { data: checkin, error: fetchError } = await supabase
     .from('check_ins')
     .select(`
       *,
-      children (name),
-      parents (name, email)
+      children (first_name, last_name),
+      parents (first_name, last_name, email)
     `)
     .eq('id', id)
     .single();
@@ -144,7 +120,7 @@ router.post('/:id/checkout', async (req, res) => {
     return res.status(404).json({ error: 'Check-in not found' });
   }
 
-  if (checkin.security_code !== parseResult.data.security_code) {
+  if (checkin.security_code !== req.body.security_code) {
     return res.status(403).json({ error: 'Invalid security code' });
   }
 
@@ -156,7 +132,7 @@ router.post('/:id/checkout', async (req, res) => {
     .from('check_ins')
     .update({ 
       check_out_time: new Date().toISOString(),
-      checked_out_by: parseResult.data.checked_out_by,
+      checked_out_by: req.body.checked_out_by || 'system',
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -168,7 +144,7 @@ router.post('/:id/checkout', async (req, res) => {
   }
 
   // Log check-out
-  await logCheckOut(parseResult.data.checked_out_by, data.id, checkin.child_id);
+  await logCheckOut(req.body.checked_out_by || 'system', data.id, checkin.child_id);
 
   // Send email notification to parent
   if (checkin.parents?.email) {
