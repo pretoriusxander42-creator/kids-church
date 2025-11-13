@@ -1496,3 +1496,6 @@ const DashboardNav = {
     }
   }
 };
+
+// Make DashboardNav available globally for onclick handlers
+window.DashboardNav = DashboardNav;
