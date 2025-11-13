@@ -168,9 +168,14 @@ const Utils = {
 
   // Show toast notification
   showToast(message, type = 'success') {
+    // Announce to screen readers
+    this.announceToScreenReader(message);
+
     const toast = document.createElement('div');
     const bgColor = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6';
     
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'polite');
     toast.style.cssText = `
       position: fixed;
       top: 20px;
@@ -193,6 +198,65 @@ const Utils = {
       toast.style.animation = 'slideOut 0.3s ease-in';
       setTimeout(() => toast.remove(), 300);
     }, 3000);
+  },
+
+  // Announce messages to screen readers
+  announceToScreenReader(message) {
+    let announcer = document.getElementById('aria-announcer');
+    
+    if (!announcer) {
+      announcer = document.createElement('div');
+      announcer.id = 'aria-announcer';
+      announcer.setAttribute('aria-live', 'polite');
+      announcer.setAttribute('aria-atomic', 'true');
+      announcer.style.cssText = `
+        position: absolute;
+        left: -10000px;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+      `;
+      document.body.appendChild(announcer);
+    }
+
+    // Clear and set new message
+    announcer.textContent = '';
+    setTimeout(() => {
+      announcer.textContent = message;
+    }, 100);
+  },
+
+  // Focus trap for modals
+  trapFocus(element) {
+    const focusableElements = element.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+
+    // Focus first element
+    setTimeout(() => firstFocusable?.focus(), 100);
+
+    const handleKeyDown = (e) => {
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstFocusable) {
+          e.preventDefault();
+          lastFocusable?.focus();
+        }
+      } else {
+        if (document.activeElement === lastFocusable) {
+          e.preventDefault();
+          firstFocusable?.focus();
+        }
+      }
+    };
+
+    element.addEventListener('keydown', handleKeyDown);
+
+    // Return cleanup function
+    return () => element.removeEventListener('keydown', handleKeyDown);
   },
 
   // Confirm dialog

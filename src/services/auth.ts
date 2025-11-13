@@ -211,6 +211,7 @@ export async function loginUser(email: string, password: string) {
       },
     };
   } catch (error) {
+    logger.error({ error }, 'Login error');
     return { error: 'Login failed' };
   }
 }

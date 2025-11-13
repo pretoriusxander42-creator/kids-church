@@ -203,3 +203,93 @@ router.get('/classes/capacity', requireMinRole('teacher'), async (req, res) => {
 });
 
 export default router;
+ 
+// CSV attendance export (admin only)
+router.get('/attendance/export.csv', requireMinRole('admin'), async (req, res) => {
+  try {
+    const { start, end } = req.query as { start?: string; end?: string };
+
+    // Default to today if not provided
+    const today = new Date().toISOString().split('T')[0];
+    const startDate = start || today;
+    const endDate = end || startDate;
+
+    const startIso = `${startDate}T00:00:00`;
+    const endIso = `${endDate}T23:59:59`;
+
+    const { data, error } = await supabase
+      .from('check_ins')
+      .select(
+        `id, check_in_time, check_out_time, class_attended,
+         children (first_name, last_name, date_of_birth),
+         parents (first_name, last_name, phone_number)`
+      )
+      .gte('check_in_time', startIso)
+      .lte('check_in_time', endIso)
+      .order('check_in_time', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const rows = data || [];
+
+    // Build CSV
+    const header = [
+      'date',
+      'child_first_name',
+      'child_last_name',
+      'date_of_birth',
+      'class',
+      'check_in_time',
+      'check_out_time',
+      'duration_minutes',
+      'parent_first_name',
+      'parent_last_name',
+      'parent_phone'
+    ];
+
+    const esc = (v: any) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+
+    const toMinutes = (startTs?: string, endTs?: string) => {
+      if (!startTs || !endTs) return '';
+      const ms = new Date(endTs).getTime() - new Date(startTs).getTime();
+      return Math.round(ms / 60000);
+    };
+
+    const csv = [header.join(',')]
+      .concat(
+        rows.map((r: any) => {
+          const date = (r.check_in_time || '').split('T')[0];
+          return [
+            date,
+            r.children?.first_name || '',
+            r.children?.last_name || '',
+            r.children?.date_of_birth || '',
+            r.class_attended || '',
+            r.check_in_time || '',
+            r.check_out_time || '',
+            toMinutes(r.check_in_time, r.check_out_time),
+            r.parents?.first_name || '',
+            r.parents?.last_name || '',
+            r.parents?.phone_number || ''
+          ].map(esc).join(',');
+        })
+      )
+      .join('\n');
+
+    const filename = `attendance_${startDate}_to_${endDate}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(csv);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});

@@ -5,6 +5,7 @@ const DashboardNav = {
     this.createNavigation();
     this.bindEvents();
     this.loadDashboardStats();
+    this.startAutoRefresh();
   },
 
   createNavigation() {
@@ -45,6 +46,13 @@ const DashboardNav = {
     document.querySelectorAll('.nav-tab').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.view === view);
     });
+
+    // Stop auto-refresh when leaving overview
+    if (view !== 'overview') {
+      this.stopAutoRefresh();
+    } else {
+      this.startAutoRefresh();
+    }
 
     // Load view content
     const content = document.getElementById('dashboardContent');
@@ -105,6 +113,7 @@ const DashboardNav = {
           <div style="display: flex; gap: 0.5rem;">
             <button class="btn-secondary" onclick="DashboardNav.showChildRegistrationModal()">+ Add Child</button>
             <button class="btn-secondary" onclick="DashboardNav.showParentRegistrationModal()">+ Add Parent</button>
+            <button class="btn-secondary" onclick="DashboardNav.showManageChildrenModal()">Manage Children</button>
           </div>
         </div>
         <div class="activity-cards">
@@ -173,12 +182,22 @@ const DashboardNav = {
           <div id="selectedChild" class="selected-child" style="display:none;">
             <h3>Selected Child</h3>
             <div id="childInfo"></div>
+            
+            <div class="form-group" style="margin-top: 1rem;">
+              <label>Assign to Class <span class="required">*</span></label>
+              <select id="classSelect" required>
+                <option value="">Loading classes...</option>
+              </select>
+              <div id="classCapacityInfo" style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;"></div>
+            </div>
+            
             <button type="submit" class="btn-primary">Check In</button>
           </div>
         </form>
       </div>
     `;
     this.setupChildSearch();
+    this.loadClassesForCheckIn();
   },
 
   setupChildSearch() {
@@ -194,20 +213,18 @@ const DashboardNav = {
 
       Utils.showLoading(resultsDiv, 'Searching...');
 
-      const result = await Utils.apiRequest('/api/children');
+      // Use optimized search endpoint
+      const result = await Utils.apiRequest(`/api/children/search?query=${encodeURIComponent(query)}&limit=10`);
 
       if (result.success) {
-        const children = result.data.data || [];
-        const filtered = children.filter(child => 
-          `${child.first_name} ${child.last_name}`.toLowerCase().includes(query.toLowerCase())
-        );
+        const children = result.data || [];
 
-        if (filtered.length === 0) {
+        if (children.length === 0) {
           Utils.showEmpty(resultsDiv, 'No children found');
           return;
         }
 
-        resultsDiv.innerHTML = filtered.map(child => `
+        resultsDiv.innerHTML = children.map(child => `
           <div class="result-item" data-child='${JSON.stringify(child)}'>
             <strong>${child.first_name} ${child.last_name}</strong>
             <span>${child.date_of_birth}</span>
@@ -255,6 +272,74 @@ const DashboardNav = {
       `;
       selectedDiv.style.display = 'block';
     }
+  },
+
+  async loadClassesForCheckIn() {
+    const classSelect = document.getElementById('classSelect');
+    if (!classSelect) return;
+
+    const result = await Utils.apiRequest('/api/statistics/classes/capacity');
+
+    if (!result.success) {
+      classSelect.innerHTML = '<option value="">Failed to load classes</option>';
+      return;
+    }
+
+    const classes = result.data.classes || [];
+
+    if (classes.length === 0) {
+      classSelect.innerHTML = '<option value="">No classes available</option>';
+      return;
+    }
+
+    // Store classes data for capacity display
+    this.classesData = classes;
+
+    classSelect.innerHTML = '<option value="">Select a class...</option>' +
+      classes.map(cls => {
+        const isFull = cls.capacity && cls.current >= cls.capacity;
+        const statusText = cls.capacity 
+          ? ` (${cls.current}/${cls.capacity}${isFull ? ' - FULL' : ''})` 
+          : ` (${cls.current} checked in)`;
+        
+        return `<option value="${cls.id}" ${isFull ? 'disabled' : ''}>
+          ${cls.name}${statusText}
+        </option>`;
+      }).join('');
+
+    // Update capacity info when selection changes
+    classSelect.addEventListener('change', (e) => {
+      this.updateClassCapacityInfo(e.target.value);
+    });
+  },
+
+  updateClassCapacityInfo(classId) {
+    const infoDiv = document.getElementById('classCapacityInfo');
+    if (!infoDiv || !this.classesData) return;
+
+    if (!classId) {
+      infoDiv.innerHTML = '';
+      return;
+    }
+
+    const selectedClass = this.classesData.find(c => c.id === classId);
+    if (!selectedClass) return;
+
+    const percentFull = selectedClass.percentFull || 0;
+    const color = percentFull >= 90 ? '#ef4444' : percentFull >= 70 ? '#f59e0b' : '#10b981';
+
+    infoDiv.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="color: ${color}; font-weight: 600;">
+          ${selectedClass.current} of ${selectedClass.capacity || '∞'} spots filled
+        </span>
+        ${selectedClass.capacity ? `
+          <div style="flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; background: ${color}; width: ${Math.min(percentFull, 100)}%;"></div>
+          </div>
+        ` : ''}
+      </div>
+    `;
   },
 
   loadCheckoutView(content) {
@@ -357,6 +442,14 @@ const DashboardNav = {
   },
 
   async performCheckIn(child) {
+    const classSelect = document.getElementById('classSelect');
+    const classId = classSelect ? classSelect.value : null;
+
+    if (!classId) {
+      Utils.showToast('Please select a class', 'error');
+      return;
+    }
+
     // Get first parent if available, otherwise create a temporary one
     const parentResult = await Utils.apiRequest('/api/parents');
     let parentId = null;
@@ -373,7 +466,7 @@ const DashboardNav = {
         child_id: child.id,
         parent_id: parentId,
         checked_in_by: user.id,
-        class_attended: 'general',
+        class_attended: classId,
       })
     });
 
@@ -391,36 +484,61 @@ const DashboardNav = {
   showSecurityCodeModal(checkInData, child) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'modal-title');
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 500px; text-align: center;">
+      <div class="modal-content security-tag-print" style="max-width: 500px; text-align: center;">
         <div class="modal-header" style="border: none; padding-bottom: 0;">
-          <h2 style="width: 100%;">Check-in Successful! ✓</h2>
+          <h2 id="modal-title" style="width: 100%;">Check-in Successful! ✓</h2>
         </div>
         <div style="padding: 2rem 0;">
-          <p style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-secondary);">
-            <strong>${child.first_name} ${child.last_name}</strong> has been checked in.
+          <p class="child-name" style="font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--text-primary); font-weight: 600;">
+            ${child.first_name} ${child.last_name}
           </p>
-          <div style="background: #f1f5f9; padding: 2rem; border-radius: 12px; margin: 1.5rem 0;">
+          <div style="background: #f1f5f9; padding: 2rem; border-radius: 12px; margin: 1.5rem 0; border: 2px dashed var(--border-color);">
             <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">
               Security Code
             </p>
-            <p style="font-size: 3rem; font-weight: 700; color: var(--primary-color); letter-spacing: 0.1em; margin: 0;">
+            <p class="security-code-display" style="font-size: 3rem; font-weight: 700; color: var(--primary-color); letter-spacing: 0.1em; margin: 0;" aria-label="Security code ${checkInData.security_code}">
               ${checkInData.security_code}
             </p>
           </div>
-          <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+          <p class="instructions" style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
             Please keep this code to check out your child.
           </p>
-          <button onclick="this.closest('.modal-overlay').remove()" class="btn-primary" style="width: 100%;">
+          <button onclick="this.closest('.modal-overlay').remove()" class="btn-primary" style="width: 100%;" aria-label="Close and return to dashboard">
             Done
           </button>
-          <button onclick="window.print()" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;">
+          <button onclick="window.print()" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;" aria-label="Print security tag">
             Print Security Tag
           </button>
         </div>
       </div>
     `;
+
     document.body.appendChild(modal);
+
+    // Trap focus in modal
+    const cleanup = Utils.trapFocus(modal);
+
+    // Clean up when modal is closed
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        cleanup();
+        modal.remove();
+      }
+    });
+
+    // Handle Escape key
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        cleanup();
+        modal.remove();
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
   },
 
   async loadClassesView(content) {
@@ -657,28 +775,47 @@ const DashboardNav = {
   },
 
   loadReports(content) {
+    const today = new Date().toISOString().split('T')[0];
     content.innerHTML = `
       <div class="reports-section">
         <h2>Reports</h2>
         <div class="report-cards">
           <div class="report-card">
-            <h3>Attendance Report</h3>
-            <p>View attendance by date, class, or child</p>
-            <button class="btn-primary">Generate Report</button>
+            <h3>Attendance CSV Export</h3>
+            <p>Download attendance between two dates (inclusive).</p>
+            <div class="form-row" style="margin-top: 0.75rem;">
+              <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" id="attStart" value="${today}">
+              </div>
+              <div class="form-group">
+                <label>End Date</label>
+                <input type="date" id="attEnd" value="${today}">
+              </div>
+            </div>
+            <button id="downloadAttendanceCsv" class="btn-primary" style="margin-top: 0.5rem;">Download CSV</button>
           </div>
           <div class="report-card">
             <h3>FTV Report</h3>
-            <p>First-time visitor tracking and follow-up</p>
-            <button class="btn-primary">Generate Report</button>
+            <p>First-time visitor tracking and follow-up (coming soon)</p>
+            <button class="btn-secondary" disabled>Generate Report</button>
           </div>
           <div class="report-card">
             <h3>Special Needs Report</h3>
-            <p>Special needs statistics and forms</p>
-            <button class="btn-primary">Generate Report</button>
+            <p>Special needs statistics and forms (coming soon)</p>
+            <button class="btn-secondary" disabled>Generate Report</button>
           </div>
         </div>
       </div>
     `;
+
+    const btn = document.getElementById('downloadAttendanceCsv');
+    btn?.addEventListener('click', () => {
+      const start = document.getElementById('attStart').value || today;
+      const end = document.getElementById('attEnd').value || start;
+      const url = `/api/statistics/attendance/export.csv?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+      window.open(url, '_blank');
+    });
   },
 
   calculateAge(dob) {
@@ -1035,12 +1172,326 @@ const DashboardNav = {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Register Parent';
     }
-  }
-};
+  },
 
-// Initialize dashboard navigation when dashboard is shown
-const originalShowDashboard = showDashboard;
-showDashboard = function() {
-  originalShowDashboard();
-  setTimeout(() => DashboardNav.init(), 100);
+  async showManageChildrenModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 900px; max-height: 80vh; overflow-y: auto;">
+        <div class="modal-header">
+          <h2>Manage Children & Parents</h2>
+          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        <div class="form-group">
+          <input 
+            type="text" 
+            id="manageChildSearch" 
+            placeholder="Search by child name..." 
+            style="width: 100%;"
+          >
+        </div>
+        <div id="childrenList" style="margin-top: 1rem;">
+          Loading children...
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Load children
+    await this.loadChildrenForManagement();
+
+    // Search functionality
+    document.getElementById('manageChildSearch').addEventListener('input', (e) => {
+      this.filterChildrenList(e.target.value);
+    });
+  },
+
+  async loadChildrenForManagement() {
+    const container = document.getElementById('childrenList');
+    Utils.showLoading(container, 'Loading children...');
+
+    const result = await Utils.apiRequest('/api/children?limit=100');
+
+    if (!result.success) {
+      Utils.showError(container, 'Failed to load children');
+      return;
+    }
+
+    const children = result.data.data || [];
+    
+    if (children.length === 0) {
+      Utils.showEmpty(container, 'No children registered');
+      return;
+    }
+
+    this.allChildren = children;
+    this.renderChildrenList(children);
+  },
+
+  renderChildrenList(children) {
+    const container = document.getElementById('childrenList');
+    
+    container.innerHTML = children.map(child => `
+      <div class="child-manage-item" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong>${child.first_name} ${child.last_name}</strong>
+          <span style="color: #6b7280; margin-left: 1rem;">DOB: ${child.date_of_birth}</span>
+          ${child.special_needs ? '<span style="margin-left: 1rem; padding: 0.25rem 0.5rem; background: #fef3c7; border-radius: 4px; font-size: 0.75rem;">Special Needs</span>' : ''}
+        </div>
+        <button 
+          class="btn-secondary" 
+          onclick="DashboardNav.showParentLinkingModal('${child.id}', '${child.first_name} ${child.last_name}')"
+          style="white-space: nowrap;"
+        >
+          Manage Parents
+        </button>
+      </div>
+    `).join('');
+  },
+
+  filterChildrenList(query) {
+    if (!this.allChildren) return;
+    
+    const filtered = this.allChildren.filter(child => 
+      `${child.first_name} ${child.last_name}`.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    this.renderChildrenList(filtered);
+  },
+
+  async showParentLinkingModal(childId, childName) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>Manage Parents for ${childName}</h2>
+          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        
+        <div style="margin-bottom: 2rem;">
+          <h3 style="margin-bottom: 1rem;">Linked Parents/Guardians</h3>
+          <div id="linkedParents">Loading...</div>
+        </div>
+
+        <div>
+          <h3 style="margin-bottom: 1rem;">Link New Parent/Guardian</h3>
+          <form id="linkParentForm" class="form">
+            <div class="form-group">
+              <label>Select Parent <span class="required">*</span></label>
+              <select id="parentSelect" required>
+                <option value="">Loading parents...</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Relationship Type <span class="required">*</span></label>
+              <select id="relationshipType" required>
+                <option value="">Select relationship...</option>
+                <option value="Mother">Mother</option>
+                <option value="Father">Father</option>
+                <option value="Guardian">Guardian</option>
+                <option value="Grandparent">Grandparent</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="authorizedPickup" checked>
+                <span>Authorized for pickup</span>
+              </label>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Link Parent</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Load linked parents and available parents
+    await Promise.all([
+      this.loadLinkedParents(childId),
+      this.loadAvailableParents()
+    ]);
+
+    // Handle form submission
+    document.getElementById('linkParentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.linkParentToChild(childId, childName);
+    });
+  },
+
+  async loadLinkedParents(childId) {
+    const container = document.getElementById('linkedParents');
+    Utils.showLoading(container, 'Loading linked parents...');
+
+    // Get relationships for this child
+    const result = await Utils.apiRequest(`/api/parents`);
+    
+    if (!result.success) {
+      Utils.showError(container, 'Failed to load parents');
+      return;
+    }
+
+    const allParents = result.data;
+    
+    // Get all relationships and filter for this child
+    const relResult = await Utils.apiRequest(`/api/children/${childId}`);
+    
+    if (!relResult.success) {
+      Utils.showEmpty(container, 'No parents linked yet');
+      return;
+    }
+
+    // Fetch parent-child relationships via a custom query
+    // Since we don't have a direct endpoint, we'll query through parent's children endpoint
+    const linkedParentsData = [];
+    
+    for (const parent of allParents) {
+      const childrenResult = await Utils.apiRequest(`/api/parents/${parent.id}/children`);
+      if (childrenResult.success) {
+        const hasChild = childrenResult.data.some(rel => rel.child_id === childId);
+        if (hasChild) {
+          const rel = childrenResult.data.find(r => r.child_id === childId);
+          linkedParentsData.push({
+            ...parent,
+            relationship_type: rel.relationship_type,
+            is_authorized_pickup: rel.is_authorized_pickup
+          });
+        }
+      }
+    }
+
+    if (linkedParentsData.length === 0) {
+      Utils.showEmpty(container, 'No parents linked yet');
+      return;
+    }
+
+    container.innerHTML = linkedParentsData.map(parent => `
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong>${parent.first_name} ${parent.last_name}</strong>
+          <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">
+            <span>${parent.relationship_type || 'Guardian'}</span>
+            ${parent.phone_number ? ` • ${parent.phone_number}` : ''}
+            ${parent.is_authorized_pickup ? ' • <span style="color: #10b981;">✓ Authorized Pickup</span>' : ''}
+          </div>
+        </div>
+        <button 
+          class="btn-secondary" 
+          style="background: #fee2e2; color: #991b1b;"
+          onclick="DashboardNav.unlinkParent('${parent.id}', '${childId}')"
+        >
+          Unlink
+        </button>
+      </div>
+    `).join('');
+  },
+
+  async loadAvailableParents() {
+    const select = document.getElementById('parentSelect');
+    
+    const result = await Utils.apiRequest('/api/parents');
+    
+    if (!result.success) {
+      select.innerHTML = '<option value="">Failed to load parents</option>';
+      return;
+    }
+
+    const parents = result.data;
+    
+    if (parents.length === 0) {
+      select.innerHTML = '<option value="">No parents available - register one first</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">Select a parent...</option>' +
+      parents.map(parent => `
+        <option value="${parent.id}">
+          ${parent.first_name} ${parent.last_name} ${parent.phone_number ? `(${parent.phone_number})` : ''}
+        </option>
+      `).join('');
+  },
+
+  async linkParentToChild(childId, childName) {
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const parentId = document.getElementById('parentSelect').value;
+    const relationshipType = document.getElementById('relationshipType').value;
+    const isAuthorizedPickup = document.getElementById('authorizedPickup').checked;
+
+    if (!parentId) {
+      Utils.showToast('Please select a parent', 'error');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Linking...';
+
+    const result = await Utils.apiRequest(`/api/parents/${parentId}/children/${childId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        relationship_type: relationshipType,
+        is_authorized_pickup: isAuthorizedPickup
+      })
+    });
+
+    if (result.success) {
+      Utils.showToast('Parent linked successfully!', 'success');
+      // Reload the linked parents list
+      await this.loadLinkedParents(childId);
+      // Reset form
+      document.getElementById('linkParentForm').reset();
+    } else {
+      Utils.showToast(`Failed to link parent: ${result.error}`, 'error');
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Link Parent';
+  },
+
+  async unlinkParent(parentId, childId) {
+    if (!confirm('Are you sure you want to unlink this parent?')) {
+      return;
+    }
+
+    const result = await Utils.apiRequest(`/api/parents/${parentId}/children/${childId}`, {
+      method: 'DELETE'
+    });
+
+    if (result.success) {
+      Utils.showToast('Parent unlinked successfully!', 'success');
+      // Reload the linked parents list
+      await this.loadLinkedParents(childId);
+    } else {
+      Utils.showToast(`Failed to unlink parent: ${result.error}`, 'error');
+    }
+  },
+
+  startAutoRefresh() {
+    // Clear existing interval if any
+    this.stopAutoRefresh();
+
+    // Refresh every 30 seconds
+    this.refreshInterval = setInterval(() => {
+      const activeTab = document.querySelector('.nav-tab.active');
+      if (activeTab && activeTab.dataset.view === 'overview') {
+        this.loadDashboardStats();
+        this.loadRecentCheckIns();
+      }
+    }, 30000); // 30 seconds
+  },
+
+  stopAutoRefresh() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
+  }
 };

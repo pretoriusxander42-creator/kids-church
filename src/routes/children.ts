@@ -10,6 +10,31 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_ANON_KEY!
 );
 
+// GET search children (optimized with ILIKE)
+router.get('/search', async (req, res) => {
+  const query = (req.query.query as string) || '';
+  const limit = parseInt(req.query.limit as string) || 20;
+
+  if (query.length < 2) {
+    return res.json({ data: [] });
+  }
+
+  const searchPattern = `%${query}%`;
+
+  const { data, error } = await supabase
+    .from('children')
+    .select('*')
+    .or(`first_name.ilike.${searchPattern},last_name.ilike.${searchPattern}`)
+    .limit(limit)
+    .order('first_name', { ascending: true });
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ data });
+});
+
 // GET all children (with pagination)
 router.get('/', async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;

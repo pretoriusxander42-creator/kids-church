@@ -1,3 +1,63 @@
+
+/* Print-friendly security tag: only print the modal content */
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+    .modal-content, .modal-content * {
+        visibility: visible !important;
+    }
+    .modal-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        box-shadow: none !important;
+        border: none !important;
+        page-break-after: avoid;
+    }
+    .modal-header {
+        border-bottom: 2px solid #000 !important;
+        padding-bottom: 1rem !important;
+    }
+    /* Enhanced security tag for printing */
+    .security-tag-print {
+        padding: 2rem !important;
+        border: 3px solid #000 !important;
+        border-radius: 12px !important;
+        text-align: center !important;
+        max-width: 400px !important;
+        margin: 2rem auto !important;
+    }
+    .security-tag-print h2 {
+        font-size: 24pt !important;
+        margin-bottom: 1rem !important;
+        font-weight: bold !important;
+    }
+    .security-tag-print .child-name {
+        font-size: 18pt !important;
+        margin: 1rem 0 !important;
+        font-weight: 600 !important;
+    }
+    .security-tag-print .security-code-display {
+        font-size: 48pt !important;
+        font-weight: bold !important;
+        letter-spacing: 0.2em !important;
+        margin: 2rem 0 !important;
+        padding: 1rem !important;
+        border: 2px dashed #000 !important;
+        background: #f5f5f5 !important;
+    }
+    .security-tag-print .instructions {
+        font-size: 12pt !important;
+        margin-top: 1.5rem !important;
+        font-style: italic !important;
+    }
+    /* Hide buttons on print */
+    button, .btn-primary, .btn-secondary, .close-btn {
+        display: none !important;
+    }
+}
 * {
     margin: 0;
     padding: 0;

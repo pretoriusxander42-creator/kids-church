@@ -63,7 +63,14 @@ function showDashboard() {
 
     if (currentUser) {
         welcomeMessage.textContent = `Welcome, ${currentUser.name || currentUser.email}`;
+        window.currentUser = currentUser; // Make user available to DashboardNav
     }
+    
+    // Initialize dashboard navigation
+    if (typeof DashboardNav !== 'undefined') {
+        DashboardNav.init();
+    }
+    
     console.log('Dashboard shown');
 }
 
