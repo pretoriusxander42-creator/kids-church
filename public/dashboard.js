@@ -415,6 +415,7 @@ const DashboardNav = {
     const checkoutResult = await Utils.apiRequest(`/api/checkins/${checkIn.id}/checkout`, {
       method: 'POST',
       body: JSON.stringify({
+        security_code: securityCode,
         checked_out_by: user.id
       })
     });

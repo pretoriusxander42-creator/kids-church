@@ -787,11 +787,20 @@ body {
 
     .dashboard-nav {
         gap: 0.25rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    
+    .dashboard-nav::-webkit-scrollbar {
+        display: none;
     }
 
     .nav-tab {
         padding: 0.75rem 1rem;
         font-size: 0.9rem;
+        white-space: nowrap;
+        min-width: fit-content;
     }
 
     .activity-cards {
@@ -806,6 +815,36 @@ body {
 
     .report-cards {
         grid-template-columns: 1fr;
+    }
+    
+    /* Touch-friendly buttons */
+    .btn-primary, .btn-secondary {
+        min-height: 44px;
+        padding: 0.875rem 1.5rem;
+    }
+    
+    /* Make modals full-screen on mobile */
+    .modal-content {
+        width: 95%;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    /* Larger tap targets for forms */
+    input, select, textarea {
+        min-height: 44px;
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    /* Search results */
+    .search-results {
+        max-height: 250px;
+    }
+    
+    .result-item {
+        padding: 1rem;
+        min-height: 60px;
     }
 }
 

@@ -366,5 +366,43 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// Offline detection
+let isOnline = navigator.onLine;
+const offlineBar = document.createElement('div');
+offlineBar.id = 'offline-indicator';
+offlineBar.style.cssText = `
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #ef4444;
+  color: white;
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 600;
+  z-index: 10000;
+  display: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+`;
+offlineBar.textContent = '⚠️ No internet connection. Some features may not work.';
+document.body.appendChild(offlineBar);
+
+window.addEventListener('online', () => {
+  isOnline = true;
+  offlineBar.style.display = 'none';
+  Utils.showToast('Connection restored', 'success');
+});
+
+window.addEventListener('offline', () => {
+  isOnline = false;
+  offlineBar.style.display = 'block';
+  Utils.showToast('No internet connection', 'error');
+});
+
+// Check connection on load
+if (!navigator.onLine) {
+  offlineBar.style.display = 'block';
+}
+
 // Make Utils available globally
 window.Utils = Utils;
