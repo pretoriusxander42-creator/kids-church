@@ -132,7 +132,7 @@ router.post('/:id/checkout', validate(schemas.uuidParam, 'params'), validate(sch
     .from('check_ins')
     .update({ 
       check_out_time: new Date().toISOString(),
-      checked_out_by: req.body.checked_out_by || 'system',
+      checked_out_by: req.body.checked_out_by || null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -144,7 +144,8 @@ router.post('/:id/checkout', validate(schemas.uuidParam, 'params'), validate(sch
   }
 
   // Log check-out
-  await logCheckOut(req.body.checked_out_by || 'system', data.id, checkin.child_id);
+  const userId = (req as any).user?.sub || req.body.checked_out_by || 'system';
+  await logCheckOut(userId, data.id, checkin.child_id);
 
   // Send email notification to parent
   if (checkin.parents?.email) {

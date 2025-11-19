@@ -96,11 +96,11 @@ router.put('/:id', validate(schemas.uuidParam, 'params'), validate(schemas.updat
 // Link child to parent
 router.post('/:id/children/:childId', async (req, res) => {
   const { id: parent_id, childId: child_id } = req.params;
-  const { relationship_type, is_authorized_pickup } = req.body;
+  const { relationship_type } = req.body;
 
   const { data, error } = await supabase
     .from('parent_child_relationships')
-    .insert([{ parent_id, child_id, relationship_type, is_authorized_pickup }])
+    .insert([{ parent_id, child_id, relationship_type }])
     .select()
     .single();
 

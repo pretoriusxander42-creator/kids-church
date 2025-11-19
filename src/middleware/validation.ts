@@ -127,7 +127,7 @@ export const schemas = {
   createClass: z.object({
     name: z.string().min(1, 'Class name is required').max(100),
     description: z.string().max(500).optional(),
-    type: z.enum(['regular', 'special', 'ftv', 'event']).optional(),
+    type: z.enum(['regular', 'special', 'ftv', 'event']),
     age_min: z.number().int().min(0).max(18).optional(),
     age_max: z.number().int().min(0).max(18).optional(),
     capacity: z.number().int().min(1).optional(),

@@ -124,7 +124,7 @@ CREATE TABLE classes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     description TEXT,
-    type TEXT CHECK (type IN ('regular', 'special', 'ftv', 'event')),
+    type TEXT CHECK (type IN ('regular', 'ftv_board', 'special_needs')),
     age_min INTEGER,
     age_max INTEGER,
     capacity INTEGER,
