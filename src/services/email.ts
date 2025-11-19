@@ -10,9 +10,42 @@ interface EmailOptions {
 
 // Email service configuration (placeholder - requires env vars)
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
+  // For local development: Log emails to console and file
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  if (isDevelopment) {
+    console.log('\n' + '='.repeat(80));
+    console.log('📧 EMAIL TO BE SENT:');
+    console.log('To:', options.to);
+    console.log('Subject:', options.subject);
+    console.log('─'.repeat(80));
+    console.log(options.text || 'See HTML content above');
+    console.log('='.repeat(80) + '\n');
+  }
+  
   // TODO: Configure with actual email service (SendGrid, AWS SES, etc.)
-  // For now, just log the email
-  console.log('Email would be sent:', options);
+  // For production, uncomment and configure:
+  /*
+  const nodemailer = require('nodemailer');
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    secure: true,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+  
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: options.to,
+    subject: options.subject,
+    text: options.text,
+    html: options.html,
+  });
+  */
+  
   return true;
 }
 
@@ -34,7 +67,7 @@ export async function sendVerificationEmail(email: string, token: string, baseUr
 }
 
 export async function sendPasswordResetEmail(email: string, token: string, baseUrl: string) {
-  const resetUrl = `${baseUrl}/reset-password/${token}`;
+  const resetUrl = `${baseUrl}/reset-password.html?token=${token}`;
   
   return sendEmail({
     to: email,

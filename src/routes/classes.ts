@@ -155,4 +155,51 @@ router.put('/:id', async (req, res) => {
   return res.json({ message: 'Class updated successfully', data });
 });
 
+// DELETE class (admin only)
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  // First check if class exists
+  const { data: existingClass, error: fetchError } = await supabase
+    .from('classes')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !existingClass) {
+    return res.status(404).json({ error: 'Class not found' });
+  }
+
+  // Check if there are active check-ins for this class today
+  const today = new Date().toISOString().split('T')[0];
+  const { data: activeCheckIns } = await supabase
+    .from('check_ins')
+    .select('id')
+    .eq('class_id', id)
+    .gte('check_in_time', `${today}T00:00:00`)
+    .is('check_out_time', null);
+
+  if (activeCheckIns && activeCheckIns.length > 0) {
+    return res.status(400).json({ 
+      error: 'Cannot delete class with active check-ins',
+      message: `This class has ${activeCheckIns.length} children currently checked in. Please check them out first.`
+    });
+  }
+
+  // Delete the class
+  const { error: deleteError } = await supabase
+    .from('classes')
+    .delete()
+    .eq('id', id);
+
+  if (deleteError) {
+    return res.status(500).json({ error: deleteError.message });
+  }
+
+  return res.json({ 
+    success: true,
+    message: 'Class deleted successfully' 
+  });
+});
+
 export default router;

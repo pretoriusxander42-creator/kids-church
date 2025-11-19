@@ -16,7 +16,6 @@ const DashboardNav = {
       <div class="dashboard-nav">
         <button class="nav-tab active" data-view="overview">Overview</button>
         <button class="nav-tab" data-view="checkin">Check-in</button>
-        <button class="nav-tab" data-view="checkout">Check-out</button>
         <button class="nav-tab" data-view="classes">Classes</button>
         <button class="nav-tab" data-view="ftv">FTV Board</button>
         <button class="nav-tab" data-view="special-needs">Special Needs</button>
@@ -65,9 +64,6 @@ const DashboardNav = {
       case 'checkin':
         this.loadCheckinView(content);
         break;
-      case 'checkout':
-        this.loadCheckoutView(content);
-        break;
       case 'classes':
         this.loadClassesView(content);
         break;
@@ -111,9 +107,9 @@ const DashboardNav = {
         <div class="section-header">
           <h2>Today's Activity</h2>
           <div style="display: flex; gap: 0.5rem;">
-            <button class="btn-secondary" onclick="DashboardNav.showChildRegistrationModal()">+ Add Child</button>
-            <button class="btn-secondary" onclick="DashboardNav.showParentRegistrationModal()">+ Add Parent</button>
-            <button class="btn-secondary" onclick="DashboardNav.showManageChildrenModal()">Manage Children</button>
+            <button class="btn-secondary" id="addChildBtn">+ Add Child</button>
+            <button class="btn-secondary" id="addParentBtn">+ Add Parent</button>
+            <button class="btn-secondary" id="manageChildrenBtn">Manage Children</button>
           </div>
         </div>
         <div class="activity-cards">
@@ -132,6 +128,25 @@ const DashboardNav = {
         </div>
       </div>
     `;
+    
+    // Use setTimeout to ensure DOM is ready after innerHTML update
+    setTimeout(() => {
+      // Attach event listeners to quick action buttons
+      const addChildBtn = document.getElementById('addChildBtn');
+      const addParentBtn = document.getElementById('addParentBtn');
+      const manageChildrenBtn = document.getElementById('manageChildrenBtn');
+      
+      if (addChildBtn) {
+        addChildBtn.addEventListener('click', () => this.showChildRegistrationModal());
+      }
+      if (addParentBtn) {
+        addParentBtn.addEventListener('click', () => this.showParentRegistrationModal());
+      }
+      if (manageChildrenBtn) {
+        manageChildrenBtn.addEventListener('click', () => this.showManageChildrenModal());
+      }
+    }, 0);
+    
     this.loadRecentCheckIns();
   },
 
@@ -171,7 +186,7 @@ const DashboardNav = {
       <div class="checkin-section">
         <div class="section-header">
           <h2>Child Check-in</h2>
-          <button class="btn-secondary" onclick="DashboardNav.showChildRegistrationModal()">+ Add New Child</button>
+          <button class="btn-secondary" id="addNewChildInCheckin">+ Add New Child</button>
         </div>
         <form id="checkinForm" class="form">
           <div class="form-group">
@@ -196,6 +211,15 @@ const DashboardNav = {
         </form>
       </div>
     `;
+    
+    // Attach event listener to Add New Child button
+    setTimeout(() => {
+      const addNewChildBtn = document.getElementById('addNewChildInCheckin');
+      if (addNewChildBtn) {
+        addNewChildBtn.addEventListener('click', () => this.showChildRegistrationModal());
+      }
+    }, 0);
+    
     this.setupChildSearch();
     this.loadClassesForCheckIn();
   },
@@ -546,10 +570,18 @@ const DashboardNav = {
     content.innerHTML = `
       <div class="section-header">
         <h2>Classes</h2>
-        <button class="btn-secondary" onclick="DashboardNav.showClassModal()">+ Create Class</button>
+        <button class="btn-secondary" id="createClassBtn">+ Create Class</button>
       </div>
       <div id="classList"></div>
     `;
+    
+    // Attach event listener for create class button
+    setTimeout(() => {
+      const createBtn = document.getElementById('createClassBtn');
+      if (createBtn) {
+        createBtn.addEventListener('click', () => this.showClassModal());
+      }
+    }, 0);
     
     const container = document.getElementById('classList');
     Utils.showLoading(container, 'Loading classes...');
@@ -565,15 +597,44 @@ const DashboardNav = {
       }
 
       container.innerHTML = classes.map(cls => `
-        <div class="class-card">
-          <h3>${cls.name}</h3>
-          <p>${cls.description || ''}</p>
-          <p><strong>Type:</strong> ${cls.type}</p>
-          <p><strong>Capacity:</strong> ${cls.capacity || 'Unlimited'}</p>
-          <p><strong>Location:</strong> ${cls.room_location || 'TBD'}</p>
-          <button class="btn-secondary" onclick="DashboardNav.viewClassDetails('${cls.id}')">View Details</button>
+        <div class="class-card" style="cursor: pointer; position: relative;" data-class-id="${cls.id}">
+          <button class="btn-danger delete-class-btn" style="position: absolute; top: 10px; right: 10px; padding: 5px 10px; font-size: 0.875rem;" 
+                  data-class-id="${cls.id}" data-class-name="${cls.name}">
+            Delete
+          </button>
+          <div class="class-card-content">
+            <h3>${cls.name}</h3>
+            <p>${cls.description || ''}</p>
+            <p><strong>Type:</strong> ${cls.type}</p>
+            <p><strong>Capacity:</strong> ${cls.capacity || 'Unlimited'}</p>
+            <p><strong>Location:</strong> ${cls.room_location || 'TBD'}</p>
+            <p style="margin-top: 10px; font-size: 0.875rem; color: #6b7280;">
+              Click to view children in this class
+            </p>
+          </div>
         </div>
       `).join('');
+
+      // Attach event listeners after HTML is rendered
+      container.querySelectorAll('.delete-class-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const classId = btn.dataset.classId;
+          const className = btn.dataset.className;
+          this.deleteClass(classId, className);
+        });
+      });
+
+      container.querySelectorAll('.class-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          // Don't trigger if clicking the delete button
+          if (e.target.closest('.delete-class-btn')) return;
+          
+          const classId = card.dataset.classId;
+          const className = card.querySelector('h3').textContent;
+          this.viewClassBoard(classId, className);
+        });
+      });
     } else {
       Utils.showError(container, 'Failed to load classes', 'DashboardNav.loadClassesView(content)');
     }
@@ -587,7 +648,7 @@ const DashboardNav = {
       <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
           <h2>${isEdit ? 'Edit Class' : 'Create New Class'}</h2>
-          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          <button class="close-btn">&times;</button>
         </div>
         <form id="classForm" class="form">
           <div class="form-group">
@@ -639,7 +700,7 @@ const DashboardNav = {
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+            <button type="button" class="btn-secondary cancel-btn">Cancel</button>
             <button type="submit" class="btn-primary">${isEdit ? 'Update' : 'Create'} Class</button>
           </div>
         </form>
@@ -648,14 +709,30 @@ const DashboardNav = {
 
     document.body.appendChild(modal);
 
+    // Attach close button event listeners
+    const closeBtn = modal.querySelector('.close-btn');
+    const cancelBtn = modal.querySelector('.cancel-btn');
+    
+    closeBtn.addEventListener('click', () => modal.remove());
+    cancelBtn.addEventListener('click', () => modal.remove());
+    
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+
+    // Form submission
     document.getElementById('classForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      await this.saveClass(classData?.id);
+      await this.saveClass(classId, modal);
     });
   },
 
-  async saveClass(classId = null) {
-    const submitBtn = event.target.querySelector('button[type="submit"]');
+  async saveClass(classId = null, modal = null) {
+    const form = document.getElementById('classForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = classId ? 'Updating...' : 'Creating...';
 
@@ -680,7 +757,12 @@ const DashboardNav = {
 
     if (result.success) {
       Utils.showToast(`Class ${classId ? 'updated' : 'created'} successfully!`, 'success');
-      document.querySelector('.modal-overlay').remove();
+      if (modal) {
+        modal.remove();
+      } else {
+        const existingModal = document.querySelector('.modal-overlay');
+        if (existingModal) existingModal.remove();
+      }
       this.loadClassesView(document.getElementById('dashboardContent'));
     } else {
       Utils.showToast(`Operation failed: ${result.error}`, 'error');
@@ -736,12 +818,21 @@ const DashboardNav = {
       <div class="special-needs-board">
         <div class="section-header">
           <h2>Special Needs Board</h2>
-          <button class="btn-secondary" onclick="DashboardNav.showSpecialNeedsFormModal()">+ Add Special Needs Form</button>
+          <button class="btn-secondary" id="addSpecialNeedsFormBtn">+ Add Special Needs Form</button>
         </div>
         <p class="subtitle">Children with special needs currently checked in</p>
         <div id="specialNeedsList"></div>
       </div>
     `;
+    
+    // Attach event listener to Add Special Needs Form button
+    setTimeout(() => {
+      const addBtn = document.getElementById('addSpecialNeedsFormBtn');
+      if (addBtn) {
+        addBtn.addEventListener('click', () => this.showSpecialNeedsFormModal());
+      }
+    }, 0);
+    
     this.loadSpecialNeedsChildren();
   },
 
@@ -767,61 +858,344 @@ const DashboardNav = {
           <p class="warning"><strong>Special Needs:</strong> Yes</p>
           ${ci.children.special_needs_details ? `<p>${ci.children.special_needs_details}</p>` : ''}
           <p><strong>Class:</strong> ${ci.class_attended}</p>
-          <button class="btn-secondary" onclick="DashboardNav.viewSpecialNeedsForm('${ci.children.id}')">View Form</button>
+          <button class="btn-secondary view-special-needs-form" data-child-id="${ci.children.id}">View Form</button>
         </div>
       `).join('');
+      
+      // Attach event listeners to all View Form buttons
+      setTimeout(() => {
+        document.querySelectorAll('.view-special-needs-form').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const childId = btn.getAttribute('data-child-id');
+            this.viewSpecialNeedsForm(childId);
+          });
+        });
+      }, 0);
     } else {
       Utils.showError(container, 'Failed to load special needs children', 'DashboardNav.loadSpecialNeedsChildren()');
     }
   },
 
-  loadReports(content) {
+  async loadReports(content) {
     const today = new Date().toISOString().split('T')[0];
     content.innerHTML = `
       <div class="reports-section">
-        <h2>Reports</h2>
-        <div class="report-cards">
-          <div class="report-card">
-            <h3>Attendance CSV Export</h3>
-            <p>Download attendance between two dates (inclusive).</p>
-            <div class="form-row" style="margin-top: 0.75rem;">
-              <div class="form-group">
-                <label>Start Date</label>
-                <input type="date" id="attStart" value="${today}">
-              </div>
-              <div class="form-group">
-                <label>End Date</label>
-                <input type="date" id="attEnd" value="${today}">
-              </div>
+        <h2>Reports & Statistics</h2>
+        
+        <!-- Overall Statistics -->
+        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+          <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px;">
+            <h3 style="margin: 0 0 0.5rem 0; font-size: 2rem;" id="totalChildrenStat">...</h3>
+            <p style="margin: 0; opacity: 0.9;">Total Children</p>
+          </div>
+          <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 8px;">
+            <h3 style="margin: 0 0 0.5rem 0; font-size: 2rem;" id="totalParentsStat">...</h3>
+            <p style="margin: 0; opacity: 0.9;">Total Parents</p>
+          </div>
+          <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 1.5rem; border-radius: 8px;">
+            <h3 style="margin: 0 0 0.5rem 0; font-size: 2rem;" id="totalClassesStat">...</h3>
+            <p style="margin: 0; opacity: 0.9;">Total Classes</p>
+          </div>
+          <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 1.5rem; border-radius: 8px;">
+            <h3 style="margin: 0 0 0.5rem 0; font-size: 2rem;" id="todayCheckinsStat">...</h3>
+            <p style="margin: 0; opacity: 0.9;">Today's Check-ins</p>
+          </div>
+        </div>
+
+        <!-- Today's Activity -->
+        <div class="report-card" style="margin-bottom: 2rem;">
+          <h3>Today's Check-ins by Class</h3>
+          <div id="todayByClass" style="margin-top: 1rem;">
+            <p style="text-align: center; color: #6b7280;">Loading...</p>
+          </div>
+        </div>
+
+        <!-- Recent Check-ins Table -->
+        <div class="report-card" style="margin-bottom: 2rem;">
+          <h3>Recent Check-ins (Last 20)</h3>
+          <div id="recentCheckinsTable" style="margin-top: 1rem; overflow-x: auto;">
+            <p style="text-align: center; color: #6b7280;">Loading...</p>
+          </div>
+        </div>
+
+        <!-- Export Options -->
+        <div class="report-card">
+          <h3>Export Data</h3>
+          <p>Download attendance data between two dates (CSV format)</p>
+          <div class="form-row" style="margin-top: 0.75rem;">
+            <div class="form-group">
+              <label>Start Date</label>
+              <input type="date" id="attStart" value="${today}">
             </div>
-            <button id="downloadAttendanceCsv" class="btn-primary" style="margin-top: 0.5rem;">Download CSV</button>
+            <div class="form-group">
+              <label>End Date</label>
+              <input type="date" id="attEnd" value="${today}">
+            </div>
           </div>
-          <div class="report-card">
-            <h3>FTV Report</h3>
-            <p>First-time visitor tracking and follow-up (coming soon)</p>
-            <button class="btn-secondary" disabled>Generate Report</button>
-          </div>
-          <div class="report-card">
-            <h3>Special Needs Report</h3>
-            <p>Special needs statistics and forms (coming soon)</p>
-            <button class="btn-secondary" disabled>Generate Report</button>
-          </div>
+          <button id="downloadAttendanceCsv" class="btn-primary" style="margin-top: 0.5rem;">Download CSV</button>
         </div>
       </div>
     `;
 
-    const btn = document.getElementById('downloadAttendanceCsv');
-    btn?.addEventListener('click', () => {
-      const start = document.getElementById('attStart').value || today;
-      const end = document.getElementById('attEnd').value || start;
-      const url = `/api/statistics/attendance/export.csv?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
-      window.open(url, '_blank');
-    });
+    // Load all statistics
+    this.loadReportsStatistics();
+
+    // Setup CSV download
+    setTimeout(() => {
+      const btn = document.getElementById('downloadAttendanceCsv');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const start = document.getElementById('attStart').value || today;
+          const end = document.getElementById('attEnd').value || start;
+          const url = `/api/statistics/attendance/export.csv?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+          window.open(url, '_blank');
+        });
+      }
+    }, 0);
+  },
+
+  async loadReportsStatistics() {
+    try {
+      // Load overall stats
+      const statsResult = await Utils.apiRequest('/api/statistics/dashboard');
+      if (statsResult.success) {
+        const stats = statsResult.data;
+        document.getElementById('totalChildrenStat').textContent = stats.totalChildren || 0;
+        document.getElementById('totalParentsStat').textContent = stats.totalParents || 0;
+        document.getElementById('totalClassesStat').textContent = stats.totalClasses || 0;
+        document.getElementById('todayCheckinsStat').textContent = stats.currentlyCheckedIn || 0;
+      }
+
+      // Load today's check-ins by class
+      const today = new Date().toISOString().split('T')[0];
+      const checkinsResult = await Utils.apiRequest(`/api/checkins?date=${today}`);
+      
+      if (checkinsResult.success) {
+        const checkIns = checkinsResult.data || [];
+        
+        // Group by class
+        const byClass = {};
+        checkIns.forEach(ci => {
+          const className = ci.classes?.name || 'Unassigned';
+          if (!byClass[className]) {
+            byClass[className] = [];
+          }
+          byClass[className].push(ci);
+        });
+
+        const todayByClassDiv = document.getElementById('todayByClass');
+        if (Object.keys(byClass).length === 0) {
+          todayByClassDiv.innerHTML = '<p style="text-align: center; color: #6b7280;">No check-ins today</p>';
+        } else {
+          todayByClassDiv.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+              ${Object.keys(byClass).map(className => `
+                <div style="background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 8px; padding: 1rem; text-align: center;">
+                  <div style="font-size: 2rem; font-weight: bold; color: #2563eb;">${byClass[className].length}</div>
+                  <div style="color: #6b7280; font-size: 0.875rem; margin-top: 0.25rem;">${className}</div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        // Recent check-ins table
+        const recentTableDiv = document.getElementById('recentCheckinsTable');
+        if (checkIns.length === 0) {
+          recentTableDiv.innerHTML = '<p style="text-align: center; color: #6b7280;">No check-ins today</p>';
+        } else {
+          recentTableDiv.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f3f4f6; text-align: left;">
+                  <th style="padding: 0.75rem; border-bottom: 2px solid #e5e7eb;">Child Name</th>
+                  <th style="padding: 0.75rem; border-bottom: 2px solid #e5e7eb;">Class</th>
+                  <th style="padding: 0.75rem; border-bottom: 2px solid #e5e7eb;">Check-in Time</th>
+                  <th style="padding: 0.75rem; border-bottom: 2px solid #e5e7eb;">Security Code</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${checkIns.slice(0, 20).map(ci => `
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 0.75rem;">${ci.children?.first_name} ${ci.children?.last_name}</td>
+                    <td style="padding: 0.75rem;">${ci.classes?.name || 'N/A'}</td>
+                    <td style="padding: 0.75rem;">${Utils.formatTime(ci.check_in_time)}</td>
+                    <td style="padding: 0.75rem; font-weight: 600; color: #2563eb;">${ci.security_code}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading reports statistics:', error);
+    }
   },
 
   calculateAge(dob) {
     const birthDate = new Date(dob);
     const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  },
+
+  async deleteClass(classId, className) {
+    if (!confirm(`Are you sure you want to delete the class "${className}"?\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const result = await Utils.apiRequest(`/api/classes/${classId}`, {
+        method: 'DELETE'
+      });
+
+      if (result.success) {
+        alert(`Class "${className}" has been deleted successfully.`);
+        // Reload classes view
+        this.loadClassesView(document.getElementById('dashboardContent'));
+      } else {
+        alert(`Failed to delete class: ${result.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Delete class error:', error);
+      alert('An error occurred while deleting the class.');
+    }
+  },
+
+  async viewClassBoard(classId, className) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+          <h2>📋 ${className} - Children Currently Checked In</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div id="classBoardContent" style="padding: 20px;">
+          <p style="text-align: center; color: #6b7280;">Loading children...</p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Attach close button event listener
+    const closeBtn = modal.querySelector('.close-btn');
+    closeBtn.addEventListener('click', () => modal.remove());
+    
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+
+    // Load children checked into this class
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const result = await Utils.apiRequest(`/api/checkins?date=${today}`);
+
+      const contentDiv = modal.querySelector('#classBoardContent');
+
+      if (result.success) {
+        const checkIns = result.data || [];
+        // Filter for this class and currently checked in (no check_out_time)
+        const classChildren = checkIns.filter(ci => 
+          ci.class_id === classId && !ci.check_out_time
+        );
+
+        if (classChildren.length === 0) {
+          contentDiv.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+              <p style="font-size: 1.2rem; color: #6b7280;">No children currently checked into this class</p>
+              <p style="margin-top: 10px; font-size: 0.875rem; color: #9ca3af;">
+                Children will appear here once they are checked in and assigned to this class.
+              </p>
+            </div>
+          `;
+          return;
+        }
+
+        contentDiv.innerHTML = `
+          <div style="margin-bottom: 20px;">
+            <p style="font-size: 1.1rem; font-weight: 600; color: #1e40af;">
+              👥 ${classChildren.length} ${classChildren.length === 1 ? 'child' : 'children'} checked in
+            </p>
+          </div>
+          <div style="display: grid; gap: 15px;">
+            ${classChildren.map(ci => {
+              const child = ci.children;
+              return `
+                <div style="background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 8px; padding: 15px;">
+                  <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                      <h3 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 1.1rem;">
+                        ${child.first_name} ${child.last_name}
+                      </h3>
+                      <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 15px; font-size: 0.9rem;">
+                        <span style="color: #6b7280; font-weight: 500;">Age:</span>
+                        <span>${child.date_of_birth ? this.calculateAge(child.date_of_birth) + ' years old' : 'N/A'}</span>
+                        
+                        <span style="color: #6b7280; font-weight: 500;">DOB:</span>
+                        <span>${child.date_of_birth || 'N/A'}</span>
+                        
+                        <span style="color: #6b7280; font-weight: 500;">Checked In:</span>
+                        <span>${Utils.formatTime(ci.check_in_time)}</span>
+                        
+                        <span style="color: #6b7280; font-weight: 500;">Security Code:</span>
+                        <span style="font-weight: 700; color: #2563eb; font-size: 1.1rem;">${ci.security_code}</span>
+                        
+                        ${child.allergies ? `
+                          <span style="color: #dc2626; font-weight: 500;">⚠️ Allergies:</span>
+                          <span style="color: #dc2626; font-weight: 600;">${child.allergies}</span>
+                        ` : ''}
+                        
+                        ${child.medical_notes ? `
+                          <span style="color: #ea580c; font-weight: 500;">🏥 Medical:</span>
+                          <span style="color: #ea580c;">${child.medical_notes}</span>
+                        ` : ''}
+                        
+                        ${child.emergency_contact_name ? `
+                          <span style="color: #6b7280; font-weight: 500;">Emergency Contact:</span>
+                          <span>${child.emergency_contact_name} - ${child.emergency_contact_phone || 'No phone'}</span>
+                        ` : ''}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else {
+        contentDiv.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #ef4444;">
+            <p>❌ Failed to load children</p>
+            <p style="font-size: 0.875rem; margin-top: 10px;">${result.message || 'Unknown error'}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('View class board error:', error);
+      const contentDiv = modal.querySelector('#classBoardContent');
+      if (contentDiv) {
+        contentDiv.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #ef4444;">
+            <p>❌ An error occurred</p>
+            <p style="font-size: 0.875rem; margin-top: 10px;">${error.message}</p>
+          </div>
+        `;
+      }
+    }
+  },
+
+  calculateAge(dateOfBirth) {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
@@ -1242,14 +1616,26 @@ const DashboardNav = {
           ${child.special_needs ? '<span style="margin-left: 1rem; padding: 0.25rem 0.5rem; background: #fef3c7; border-radius: 4px; font-size: 0.75rem;">Special Needs</span>' : ''}
         </div>
         <button 
-          class="btn-secondary" 
-          onclick="DashboardNav.showParentLinkingModal('${child.id}', '${child.first_name} ${child.last_name}')"
+          class="btn-secondary manage-parents-btn" 
+          data-child-id="${child.id}"
+          data-child-name="${child.first_name} ${child.last_name}"
           style="white-space: nowrap;"
         >
           Manage Parents
         </button>
       </div>
     `).join('');
+    
+    // Attach event listeners to all Manage Parents buttons
+    setTimeout(() => {
+      document.querySelectorAll('.manage-parents-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const childId = btn.getAttribute('data-child-id');
+          const childName = btn.getAttribute('data-child-name');
+          this.showParentLinkingModal(childId, childName);
+        });
+      });
+    }, 0);
   },
 
   filterChildrenList(query) {
@@ -1386,14 +1772,26 @@ const DashboardNav = {
           </div>
         </div>
         <button 
-          class="btn-secondary" 
+          class="btn-secondary unlink-parent-btn" 
           style="background: #fee2e2; color: #991b1b;"
-          onclick="DashboardNav.unlinkParent('${parent.id}', '${childId}')"
+          data-parent-id="${parent.id}"
+          data-child-id="${childId}"
         >
           Unlink
         </button>
       </div>
     `).join('');
+    
+    // Attach event listeners to all Unlink buttons
+    setTimeout(() => {
+      document.querySelectorAll('.unlink-parent-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const parentId = btn.getAttribute('data-parent-id');
+          const childId = btn.getAttribute('data-child-id');
+          this.unlinkParent(parentId, childId);
+        });
+      });
+    }, 0);
   },
 
   async loadAvailableParents() {

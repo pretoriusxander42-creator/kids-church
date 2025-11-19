@@ -47,12 +47,20 @@ export const schemas = {
   }),
 
   passwordReset: z.object({
-    password: z.string()
+    token: z.string().optional(),
+    newPassword: z.string()
       .min(8, 'Password must be at least 8 characters')
       .regex(/[A-Z]/, 'Password must contain an uppercase letter')
       .regex(/[a-z]/, 'Password must contain a lowercase letter')
       .regex(/[0-9]/, 'Password must contain a number')
       .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain a special character'),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+      .regex(/[a-z]/, 'Password must contain a lowercase letter')
+      .regex(/[0-9]/, 'Password must contain a number')
+      .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain a special character')
+      .optional(),
   }),
 
   email: z.object({

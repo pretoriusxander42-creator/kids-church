@@ -96,6 +96,18 @@ router.post('/forgot-password', validate(schemas.email), async (req, res) => {
     return res.status(500).json({ error: result.error });
   }
 
+  // In development, also return the reset link for easy access
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  if (isDevelopment && result.token) {
+    const baseUrl = process.env.BASE_URL || 'http://localhost:4000';
+    return res.json({ 
+      success: true, 
+      message: 'Password reset link generated',
+      resetUrl: `${baseUrl}/reset-password.html?token=${result.token}`,
+      devNote: 'Reset URL provided for development. In production, this will only be sent via email.'
+    });
+  }
+
   return res.json({ 
     success: true, 
     message: 'If that email exists, a password reset link has been sent' 
@@ -103,11 +115,14 @@ router.post('/forgot-password', validate(schemas.email), async (req, res) => {
 });
 
 // Reset password with token
-router.post('/reset-password/:token', validate(schemas.passwordReset), async (req, res) => {
-  const { token } = req.params;
-  const { password } = req.body;
+router.post('/reset-password', validate(schemas.passwordReset), async (req, res) => {
+  const { token, newPassword } = req.body;
 
-  const result = await resetPassword(token, password);
+  if (!token) {
+    return res.status(400).json({ error: 'Reset token is required' });
+  }
+
+  const result = await resetPassword(token, newPassword);
 
   if (result.error) {
     return res.status(400).json({ error: result.error });

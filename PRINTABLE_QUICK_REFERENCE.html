@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kids Church Check-in - Quick Reference</title>
+    <style>
+        @media print {
+            body { margin: 0; padding: 10mm; }
+            .no-print { display: none; }
+            .page-break { page-break-after: always; }
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            max-width: 210mm; /* A4 width */
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2563eb;
+            border-bottom: 4px solid #2563eb;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        h2 {
+            color: #1e40af;
+            background: #dbeafe;
+            padding: 8px 12px;
+            margin: 20px 0 10px 0;
+            border-left: 4px solid #2563eb;
+        }
+        
+        h3 {
+            color: #1e3a8a;
+            margin: 15px 0 8px 0;
+        }
+        
+        .checklist {
+            background: #f0f9ff;
+            border: 2px solid #2563eb;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        .checklist h3 {
+            margin-top: 0;
+            color: #1e40af;
+        }
+        
+        .step {
+            background: #fff;
+            border-left: 4px solid #10b981;
+            padding: 12px;
+            margin: 10px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .step-number {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            width: 25px;
+            height: 25px;
+            text-align: center;
+            line-height: 25px;
+            border-radius: 50%;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 12px;
+            margin: 10px 0;
+        }
+        
+        .error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 12px;
+            margin: 10px 0;
+        }
+        
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .card {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .card h3 {
+            margin-top: 0;
+            color: #1e3a8a;
+        }
+        
+        ul {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        
+        li {
+            margin: 5px 0;
+        }
+        
+        .important {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .print-button:hover {
+            background: #1e40af;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        th {
+            background: #f3f4f6;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button no-print" onclick="window.print()">🖨️ Print This Guide</button>
+    
+    <h1>🏫 Kids Church Check-in System<br>Quick Reference Guide</h1>
+    
+    <div class="important">
+        ⚠️ START SYSTEM 15 MINUTES BEFORE SERVICE
+    </div>
+    
+    <div class="checklist">
+        <h3>✅ Sunday Morning Startup (5 min)</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            Open Terminal and run: <code>cd /Users/Xander/kids-church && ./start-server.sh</code>
+        </div>
+        <div class="step">
+            <span class="step-number">2</span>
+            Open browser to: <code>http://localhost:4000</code>
+        </div>
+        <div class="step">
+            <span class="step-number">3</span>
+            Login with: <code>pretoriusxander42@gmail.com</code>
+        </div>
+        <div class="step">
+            <span class="step-number">4</span>
+            Test one check-in (Emma Smith) to verify system ready
+        </div>
+    </div>
+    
+    <h2>🎫 CHECK IN A CHILD (Most Common Task)</h2>
+    
+    <div class="step">
+        <span class="step-number">1</span>
+        <strong>Click "Check-in" tab</strong> at top of screen
+    </div>
+    
+    <div class="step">
+        <span class="step-number">2</span>
+        <strong>Type child's name</strong> in search box (e.g., "Emma")
+    </div>
+    
+    <div class="step">
+        <span class="step-number">3</span>
+        <strong>Click on child</strong> from search results
+    </div>
+    
+    <div class="step">
+        <span class="step-number">4</span>
+        <strong>Select class</strong> from dropdown:
+        <ul>
+            <li>Nursery (0-2 years)</li>
+            <li>Toddlers (2-3 years)</li>
+            <li>Kindergarten (4-5 years)</li>
+            <li>Elementary (6-10 years)</li>
+            <li>Pre-Teen (11-12 years)</li>
+            <li>Special Needs (All ages)</li>
+        </ul>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">5</span>
+        <strong>Click "Check In" button</strong>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">6</span>
+        <strong>Give parent the 6-digit security code</strong> (print or show on screen)
+    </div>
+    
+    <div class="success">
+        ✅ Child is now checked in! Parent needs code for pickup.
+    </div>
+    
+    <h2>✅ CHECK OUT A CHILD (Pickup Time)</h2>
+    
+    <div class="step">
+        <span class="step-number">1</span>
+        <strong>Click "Check-out" tab</strong>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">2</span>
+        <strong>Ask parent for security code</strong> (6 digits)
+    </div>
+    
+    <div class="step">
+        <span class="step-number">3</span>
+        <strong>Type code</strong> in input box
+    </div>
+    
+    <div class="step">
+        <span class="step-number">4</span>
+        <strong>Verify correct child</strong> appears on screen
+    </div>
+    
+    <div class="step">
+        <span class="step-number">5</span>
+        <strong>Click "Check Out" button</strong>
+    </div>
+    
+    <div class="success">
+        ✅ Child successfully checked out!
+    </div>
+    
+    <div class="page-break"></div>
+    
+    <h2>👶 ADD NEW CHILD (First-Time Visitor)</h2>
+    
+    <div class="step">
+        <span class="step-number">1</span>
+        <strong>Click "Add Child" button</strong> (on Overview tab)
+    </div>
+    
+    <div class="step">
+        <span class="step-number">2</span>
+        <strong>Fill in required fields:</strong>
+        <ul>
+            <li>First name *required</li>
+            <li>Last name *required</li>
+            <li>Date of birth (helpful for class assignment)</li>
+            <li>Allergies (important!)</li>
+            <li>Medical conditions</li>
+            <li>Emergency notes</li>
+        </ul>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">3</span>
+        <strong>Click "Register Child"</strong>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">4</span>
+        <strong>Add parent next</strong> (see below) and link them
+    </div>
+    
+    <h2>👨‍👩‍👧 ADD NEW PARENT</h2>
+    
+    <div class="step">
+        <span class="step-number">1</span>
+        <strong>Click "Add Parent" button</strong>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">2</span>
+        <strong>Fill in details:</strong>
+        <ul>
+            <li>First name *required</li>
+            <li>Last name *required</li>
+            <li>Phone number *required (for emergencies)</li>
+            <li>Email (optional)</li>
+        </ul>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">3</span>
+        <strong>Click "Register Parent"</strong>
+    </div>
+    
+    <h2>🔗 LINK PARENT TO CHILD</h2>
+    
+    <div class="step">
+        <span class="step-number">1</span>
+        <strong>Click "Manage Children" button</strong>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">2</span>
+        <strong>Find child in list</strong> (use search if needed)
+    </div>
+    
+    <div class="step">
+        <span class="step-number">3</span>
+        <strong>Click "Edit" button</strong> for that child
+    </div>
+    
+    <div class="step">
+        <span class="step-number">4</span>
+        <strong>Select parent from dropdown</strong>
+    </div>
+    
+    <div class="step">
+        <span class="step-number">5</span>
+        <strong>Choose relationship</strong> (Mother, Father, Guardian, etc.)
+    </div>
+    
+    <div class="step">
+        <span class="step-number">6</span>
+        <strong>Click "Link Parent"</strong>
+    </div>
+    
+    <h2>❌ TROUBLESHOOTING</h2>
+    
+    <div class="grid">
+        <div class="card">
+            <h3>Can't Find Child</h3>
+            <ul>
+                <li>Check spelling</li>
+                <li>Try first name only</li>
+                <li>Add as new child if first visit</li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h3>Button Doesn't Work</h3>
+            <ul>
+                <li>Refresh page (Cmd+R)</li>
+                <li>Check internet connection</li>
+                <li>Check terminal for errors</li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h3>Invalid Security Code</h3>
+            <ul>
+                <li>Ask parent to double-check</li>
+                <li>Verify all 6 digits</li>
+                <li>Check code wasn't from previous week</li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h3>Server Not Running</h3>
+            <ul>
+                <li>Run: <code>./start-server.sh</code></li>
+                <li>Wait 30 seconds</li>
+                <li>Refresh browser</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="error">
+        <strong>🚨 EMERGENCY: System Down</strong><br>
+        1. Run: <code>./stop-server.sh</code> then <code>./start-server.sh</code><br>
+        2. If still down, use paper backup system<br>
+        3. All data is safe in database - can be recovered
+    </div>
+    
+    <h2>📊 DASHBOARD OVERVIEW</h2>
+    
+    <table>
+        <tr>
+            <th>Tab</th>
+            <th>Purpose</th>
+        </tr>
+        <tr>
+            <td><strong>Overview</strong></td>
+            <td>Statistics, recent check-ins, quick action buttons</td>
+        </tr>
+        <tr>
+            <td><strong>Check-in</strong></td>
+            <td>Search and check in children</td>
+        </tr>
+        <tr>
+            <td><strong>Check-out</strong></td>
+            <td>Enter security code to check out</td>
+        </tr>
+        <tr>
+            <td><strong>Classes</strong></td>
+            <td>View and manage classes</td>
+        </tr>
+        <tr>
+            <td><strong>First Time Visitor</strong></td>
+            <td>Quick registration for new families</td>
+        </tr>
+        <tr>
+            <td><strong>Special Needs</strong></td>
+            <td>Record accommodation requirements</td>
+        </tr>
+        <tr>
+            <td><strong>Reports</strong></td>
+            <td>Generate check-in history reports</td>
+        </tr>
+    </table>
+    
+    <h2>🔒 SECURITY CODE RULES</h2>
+    
+    <div class="warning">
+        <ul>
+            <li><strong>6 digits</strong> (e.g., 123456)</li>
+            <li><strong>Unique per child per visit</strong></li>
+            <li><strong>Required for checkout</strong></li>
+            <li><strong>Keep confidential</strong> - only give to parent/guardian</li>
+            <li><strong>New code each time</strong> - old codes won't work</li>
+        </ul>
+    </div>
+    
+    <h2>✅ END OF DAY CHECKLIST</h2>
+    
+    <div class="checklist">
+        <ul style="list-style: none; padding-left: 0;">
+            <li>☐ All children checked out</li>
+            <li>☐ Review any special notes</li>
+            <li>☐ Run: <code>./stop-server.sh</code></li>
+            <li>☐ Close browser</li>
+            <li>☐ Note any issues for next week</li>
+        </ul>
+    </div>
+    
+    <h2>📞 SUPPORT INFO</h2>
+    
+    <div class="grid">
+        <div class="card">
+            <h3>Admin Logins</h3>
+            <ul>
+                <li>pretoriusxander42@gmail.com</li>
+                <li>xanderpretorius2002@gmail.com</li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h3>System URLs</h3>
+            <ul>
+                <li>Main: <code>http://localhost:4000</code></li>
+                <li>Health: <code>http://localhost:4000/health</code></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="success" style="margin-top: 30px; text-align: center; font-size: 18px;">
+        <strong>🎉 You're Ready for Sunday! 🎉</strong><br>
+        Remember: Start system 15 minutes early • Test one check-in • Have paper backup ready
+    </div>
+    
+    <div style="text-align: center; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+        <small>
+            Kids Church Check-in System v1.0 | Last Updated: November 17, 2024<br>
+            For detailed help, see <code>USER_GUIDE.md</code> in project folder
+        </small>
+    </div>
+</body>
+</html>

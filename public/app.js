@@ -6,13 +6,19 @@ const authSection = document.getElementById('authSection');
 const dashboardSection = document.getElementById('dashboardSection');
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
+const forgotPasswordForm = document.getElementById('forgotPasswordForm');
 const loginErrorMessage = document.getElementById('loginErrorMessage');
 const registerErrorMessage = document.getElementById('registerErrorMessage');
+const forgotErrorMessage = document.getElementById('forgotErrorMessage');
+const forgotSuccessMessage = document.getElementById('forgotSuccessMessage');
 const loginButton = document.getElementById('loginButton');
 const registerButton = document.getElementById('registerButton');
+const forgotPasswordButton = document.getElementById('forgotPasswordButton');
 const logoutBtn = document.getElementById('logoutBtn');
 const mainNav = document.getElementById('mainNav');
 const welcomeMessage = document.getElementById('welcomeMessage');
+const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+const backToLoginLink = document.getElementById('backToLoginLink');
 
 const tabButtons = document.querySelectorAll('.tab-button');
 
@@ -31,8 +37,74 @@ tabButtons.forEach(button => {
 
         hideLoginError();
         hideRegisterError();
+        hideForgotError();
+        hideForgotSuccess();
     });
 });
+
+// Forgot password link handlers
+if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showForgotPasswordForm();
+    });
+}
+
+if (backToLoginLink) {
+    backToLoginLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showLoginForm();
+    });
+}
+
+function showForgotPasswordForm() {
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'none';
+    forgotPasswordForm.style.display = 'block';
+    
+    // Update tab buttons
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    
+    hideForgotError();
+    hideForgotSuccess();
+}
+
+function showLoginForm() {
+    loginForm.style.display = 'block';
+    registerForm.style.display = 'none';
+    forgotPasswordForm.style.display = 'none';
+    
+    // Activate login tab button
+    tabButtons.forEach(btn => {
+        if (btn.dataset.tab === 'login') {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
+    hideLoginError();
+}
+
+function showForgotError(message) {
+    forgotErrorMessage.textContent = message;
+    forgotErrorMessage.classList.add('active');
+}
+
+function hideForgotError() {
+    forgotErrorMessage.textContent = '';
+    forgotErrorMessage.classList.remove('active');
+}
+
+function showForgotSuccess(message) {
+    forgotSuccessMessage.textContent = message;
+    forgotSuccessMessage.style.display = 'block';
+}
+
+function hideForgotSuccess() {
+    forgotSuccessMessage.textContent = '';
+    forgotSuccessMessage.style.display = 'none';
+}
 
 function showLoginError(message) {
     loginErrorMessage.textContent = message;
@@ -246,6 +318,73 @@ if (registerForm) {
         } finally {
             registerButton.disabled = false;
             registerButton.textContent = 'Create Account';
+        }
+    });
+}
+
+// Forgot password form submission
+if (forgotPasswordForm) {
+    forgotPasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideForgotError();
+        hideForgotSuccess();
+
+        const email = document.getElementById('forgotEmail').value.trim();
+
+        if (!email) {
+            showForgotError('Please enter your email address');
+            return;
+        }
+
+        forgotPasswordButton.disabled = true;
+        forgotPasswordButton.textContent = 'Sending...';
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Show success message
+                let successMsg = data.message || 'Password reset link sent! Check your email.';
+                
+                // In development mode, show the reset link directly
+                if (data.resetUrl) {
+                    successMsg = `
+                        <strong>Development Mode:</strong><br>
+                        Click the link below to reset your password:<br>
+                        <a href="${data.resetUrl}" style="color: #065f46; text-decoration: underline;">${data.resetUrl}</a><br><br>
+                        <small>In production, this link would be sent via email.</small>
+                    `;
+                    forgotSuccessMessage.innerHTML = successMsg;
+                } else {
+                    showForgotSuccess(successMsg);
+                }
+                
+                forgotSuccessMessage.style.display = 'block';
+                document.getElementById('forgotEmail').value = '';
+                
+                // Don't auto-redirect if showing the URL
+                if (!data.resetUrl) {
+                    setTimeout(() => {
+                        showLoginForm();
+                    }, 3000);
+                }
+            } else {
+                showForgotError(data.error || 'Failed to send reset link. Please try again.');
+            }
+        } catch (error) {
+            console.error('Forgot password error:', error);
+            showForgotError('Connection error. Please check your network and try again.');
+        } finally {
+            forgotPasswordButton.disabled = false;
+            forgotPasswordButton.textContent = 'Send Reset Link';
         }
     });
 }

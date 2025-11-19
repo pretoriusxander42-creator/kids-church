@@ -248,6 +248,12 @@ export async function requestPasswordReset(email: string) {
     const baseUrl = process.env.BASE_URL || 'http://localhost:4000';
     await sendPasswordResetEmail(email, resetToken, baseUrl);
 
+    // Return token in development for easy access
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    if (isDevelopment) {
+      return { success: true, token: resetToken };
+    }
+
     return { success: true };
   } catch (error) {
     return { error: 'Password reset request failed' };
