@@ -195,7 +195,7 @@ const DashboardNav = {
             <h2>Select a Classroom</h2>
             <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
           </div>
-          <button class="btn-primary" id="createClassBtn" data-action="create-class" onclick="console.log('[ONCLICK] Button clicked!'); if (window.DashboardNav) { window.DashboardNav.showCreateClassModal(); } return false;">+ Create New Class</button>
+          <button class="btn-primary" id="createClassBtn" data-action="create-class" style="position: relative; z-index: 9999;" onclick="alert('BUTTON CLICKED! onclick fired'); console.log('[ONCLICK] Button clicked!'); if (window.DashboardNav) { window.DashboardNav.showCreateClassModal(); } else { alert('ERROR: DashboardNav not found on window'); } return false;">+ Create New Class</button>
         </div>
         <div id="classroomsList" class="classrooms-grid">
           <p style="text-align: center; color: #6b7280;">Loading classrooms...</p>
