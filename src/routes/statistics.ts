@@ -213,23 +213,37 @@ router.get('/classes/membership', async (req, res) => {
       return res.status(500).json({ error: classError.message });
     }
 
-    const membershipData = await Promise.all(
-      classes.map(async (classItem: any) => {
-        // Count active assignments for this class
-        const { count } = await supabase
-          .from('class_assignments')
-          .select('*', { count: 'exact', head: true })
-          .eq('class_id', classItem.id)
-          .eq('is_active', true);
+    // Get all children
+    const { data: allChildren, error: childrenError } = await supabase
+      .from('children')
+      .select('id, class_assignment, is_archived')
+      .eq('is_archived', false);
 
-        return {
-          id: classItem.id,
-          name: classItem.name,
-          type: classItem.type,
-          memberCount: count || 0,
-        };
-      })
-    );
+    if (childrenError) {
+      return res.status(500).json({ error: childrenError.message });
+    }
+
+    const membershipData = classes.map((classItem: any) => {
+      // Count children assigned to this class
+      // Match by class ID or by the old class_assignment text field
+      let memberCount = 0;
+      
+      if (allChildren) {
+        memberCount = allChildren.filter((child: any) => {
+          // Check if child is assigned to this class (by ID or by matching text enum)
+          return child.class_assignment === classItem.id || 
+                 child.class_assignment === classItem.type ||
+                 child.class_assignment === classItem.name?.toLowerCase().replace(/\s+/g, '_');
+        }).length;
+      }
+
+      return {
+        id: classItem.id,
+        name: classItem.name,
+        type: classItem.type,
+        memberCount: memberCount,
+      };
+    });
 
     // Calculate total
     const totalMembers = membershipData.reduce((sum, item) => sum + item.memberCount, 0);
