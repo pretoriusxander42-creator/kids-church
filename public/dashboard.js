@@ -278,7 +278,12 @@ const DashboardNav = {
       container.innerHTML = classes.map(cls => `
         <div class="classroom-card" data-class-id="${cls.id}" data-class-name="${cls.name}" data-class-type="${cls.type}">
           <div class="classroom-icon">
-            ${this.getClassroomIcon(cls.type)}
+            ${cls.logo_url ? 
+              `<img src="${cls.logo_url}" alt="${cls.name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+               <div style="display: none; width: 100%; height: 100%; background: #f3f4f6; border: 2px dashed #d1d5db; border-radius: 8px; align-items: center; justify-content: center; color: #9ca3af; font-size: 0.875rem; text-align: center; padding: 0.5rem;">No Image</div>` 
+              : 
+              `<div style="width: 100%; height: 100%; background: #f3f4f6; border: 2px dashed #d1d5db; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 0.875rem; text-align: center; padding: 0.5rem;">No Image</div>`
+            }
           </div>
           <h3>${cls.name}</h3>
           <p class="classroom-type">${this.getClassTypeLabel(cls.type)}</p>
@@ -2711,6 +2716,12 @@ const DashboardNav = {
             </div>
             
             <div class="form-group">
+              <label for="classLogoUrl">Logo/Image URL</label>
+              <input type="url" id="classLogoUrl" placeholder="https://example.com/logo.jpg">
+              <small style="color: #6b7280; font-size: 0.875rem;">Enter a URL to an image for this classroom</small>
+            </div>
+            
+            <div class="form-group">
               <label for="classAgeRange">Age Range</label>
               <input type="text" id="classAgeRange" placeholder="e.g., 2-4 years">
             </div>
@@ -2732,7 +2743,7 @@ const DashboardNav = {
             
             <div class="form-actions">
               <button type="submit" class="btn-primary">Create Classroom</button>
-              <button type="button" class="btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+              <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
             </div>
           </form>
         </div>
@@ -2762,6 +2773,7 @@ const DashboardNav = {
     const classData = {
       name: document.getElementById('className').value,
       type: document.getElementById('classType').value,
+      logo_url: document.getElementById('classLogoUrl').value || null,
       age_range: document.getElementById('classAgeRange').value || null,
       capacity: parseInt(document.getElementById('classCapacity').value) || null,
       room_number: document.getElementById('classRoomNumber').value || null,
@@ -2846,6 +2858,12 @@ const DashboardNav = {
           </div>
           
           <div class="form-group">
+            <label for="editClassLogoUrl">Logo/Image URL</label>
+            <input type="url" id="editClassLogoUrl" placeholder="https://example.com/logo.jpg" value="${classData.logo_url || ''}">
+            <small style="color: #6b7280; font-size: 0.875rem;">Enter a URL to an image for this classroom</small>
+          </div>
+          
+          <div class="form-group">
             <label for="editClassDescription">Description</label>
             <textarea id="editClassDescription" placeholder="Description" rows="3">${classData.description || ''}</textarea>
           </div>
@@ -2884,6 +2902,7 @@ const DashboardNav = {
     const classData = {
       name: document.getElementById('editClassName').value,
       type: document.getElementById('editClassType').value,
+      logo_url: document.getElementById('editClassLogoUrl').value || null,
       description: document.getElementById('editClassDescription').value || null,
       capacity: parseInt(document.getElementById('editClassCapacity').value) || null,
       room_location: document.getElementById('editClassRoomLocation').value || null

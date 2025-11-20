@@ -21,6 +21,7 @@ const classSchema = z.object({
   room_location: z.string().optional(),
   teacher_id: z.string().uuid().optional(),
   schedule: z.string().optional(),
+  logo_url: z.string().url().optional().or(z.literal('')),
 });
 
 // GET all classes
