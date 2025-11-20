@@ -79,6 +79,25 @@ router.get('/:id', async (req, res) => {
   return res.json(data);
 });
 
+// GET parents for a specific child
+router.get('/:id/parents', async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from('parent_child_relationships')
+    .select(`
+      *,
+      parents (*)
+    `)
+    .eq('child_id', id);
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json(data || []);
+});
+
 // Register new child
 router.post('/', validate(schemas.createChild), async (req, res) => {
   const { data, error } = await supabase

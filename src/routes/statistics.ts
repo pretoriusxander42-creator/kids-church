@@ -168,8 +168,7 @@ router.get('/classes/capacity', requireMinRole('teacher'), async (req, res) => {
   try {
     const { data: classes, error: classError } = await supabase
       .from('classes')
-      .select('*')
-      .eq('is_active', true);
+      .select('*');
 
     if (classError) {
       return res.status(500).json({ error: classError.message });

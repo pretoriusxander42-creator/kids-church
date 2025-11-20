@@ -475,12 +475,23 @@ const DashboardNav = {
       return;
     }
 
-    // Get first parent if available, otherwise create a temporary one
-    const parentResult = await Utils.apiRequest('/api/parents');
+    // Get parents for this specific child
+    const parentResult = await Utils.apiRequest(`/api/children/${child.id}/parents`);
     let parentId = null;
     
-    if (parentResult.success && parentResult.data.data && parentResult.data.data.length > 0) {
-      parentId = parentResult.data.data[0].id;
+    if (parentResult.success && parentResult.data && parentResult.data.length > 0) {
+      // Use the first parent (or primary contact if available)
+      const primaryParent = parentResult.data.find(p => p.is_primary_contact) || parentResult.data[0];
+      parentId = primaryParent.parent_id;
+    } else {
+      // No parent found - show error and prompt to add parent
+      Utils.showToast('This child has no linked parent. Please add a parent first.', 'error');
+      
+      // Optionally show parent registration modal
+      if (confirm('Would you like to register a parent for this child now?')) {
+        this.showParentRegistrationModal(child);
+      }
+      return;
     }
 
     const user = window.currentUser;
@@ -490,7 +501,7 @@ const DashboardNav = {
       body: JSON.stringify({
         child_id: child.id,
         parent_id: parentId,
-        checked_in_by: user.id,
+        checked_in_by: user?.id,
         class_attended: classId,
       })
     });
@@ -791,8 +802,25 @@ const DashboardNav = {
 
     if (result.success) {
       const checkIns = result.data;
+      
+      // Get all class IDs from check-ins
+      const classIds = [...new Set(checkIns
+        .filter(ci => ci.class_attended)
+        .map(ci => ci.class_attended))];
+      
+      // Fetch class details to determine types
+      const classesResult = await Utils.apiRequest('/api/classes');
+      const classes = classesResult.success ? classesResult.data : [];
+      
+      // Create lookup map for class types
+      const classTypesMap = {};
+      classes.forEach(cls => {
+        classTypesMap[cls.id] = cls.type;
+      });
+      
+      // Filter for FTV children (classes with type='ftv')
       const ftvChildren = checkIns.filter(ci => 
-        ci.children?.class_assignment === 'ftv_board'
+        ci.class_attended && classTypesMap[ci.class_attended] === 'ftv'
       );
 
       if (ftvChildren.length === 0) {
@@ -805,7 +833,7 @@ const DashboardNav = {
           <h3>${ci.children.first_name} ${ci.children.last_name}</h3>
           <p><strong>Age:</strong> ${this.calculateAge(ci.children.date_of_birth)} years</p>
           <p><strong>Checked in:</strong> ${Utils.formatTime(ci.check_in_time)}</p>
-          <p><strong>Parent Contact:</strong> ${ci.parents?.phone_number || 'N/A'}</p>
+          <p><strong>Parent Contact:</strong> ${ci.parents?.phone_number || ci.parents?.email || 'N/A'}</p>
         </div>
       `).join('');
     } else {
