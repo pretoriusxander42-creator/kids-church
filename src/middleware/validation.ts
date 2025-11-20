@@ -72,11 +72,11 @@ export const schemas = {
     first_name: z.string().min(1, 'First name is required').max(50),
     last_name: z.string().min(1, 'Last name is required').max(50),
     date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
-    gender: z.enum(['male', 'female', 'other']).optional(),
-    allergies: z.string().max(500).optional(),
-    medical_notes: z.string().max(1000).optional(),
+    gender: z.enum(['male', 'female', 'other']).nullable().optional(),
+    allergies: z.string().max(500).nullable().optional(),
+    medical_notes: z.string().max(1000).nullable().optional(),
     special_needs: z.boolean().optional(),
-    special_needs_details: z.string().max(1000).optional(),
+    special_needs_details: z.string().max(1000).nullable().optional(),
   }),
 
   updateChild: z.object({

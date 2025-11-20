@@ -1118,3 +1118,116 @@ body {
         padding: 1.5rem;
     }
 }
+
+/* Classroom Selection */
+.classrooms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.classroom-card {
+    background: var(--surface);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.classroom-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-4px);
+}
+
+.classroom-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.classroom-card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.classroom-type {
+    color: var(--primary-color);
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+}
+
+.classroom-capacity,
+.classroom-location {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin: 0.25rem 0;
+}
+
+.classroom-actions {
+    margin-top: 1.5rem;
+}
+
+.classroom-select-btn {
+    width: 100%;
+    padding: 0.75rem 1.5rem;
+}
+
+/* Classroom Options Modal */
+.classroom-options {
+    display: grid;
+    gap: 1rem;
+}
+
+.option-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.option-card:hover {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    transform: translateX(5px);
+    box-shadow: var(--shadow-md);
+}
+
+.option-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+}
+
+.option-card h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.option-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+    .classrooms-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .option-card {
+        flex-direction: column;
+        text-align: center;
+    }
+}

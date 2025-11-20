@@ -15,8 +15,7 @@ const DashboardNav = {
     const navHTML = `
       <div class="dashboard-nav">
         <button class="nav-tab active" data-view="overview">Overview</button>
-        <button class="nav-tab" data-view="checkin">Check-in</button>
-        <button class="nav-tab" data-view="classes">Classes</button>
+        <button class="nav-tab" data-view="classrooms">Select Classroom</button>
         <button class="nav-tab" data-view="ftv">FTV Board</button>
         <button class="nav-tab" data-view="special-needs">Special Needs</button>
         <button class="nav-tab" data-view="reports">Reports</button>
@@ -60,6 +59,9 @@ const DashboardNav = {
     switch(view) {
       case 'overview':
         this.loadOverview(content);
+        break;
+      case 'classrooms':
+        this.loadClassroomSelection(content);
         break;
       case 'checkin':
         this.loadCheckinView(content);
@@ -179,6 +181,471 @@ const DashboardNav = {
     } else {
       Utils.showError(container, 'Failed to load recent check-ins', 'DashboardNav.loadRecentCheckIns()');
     }
+  },
+
+  async loadClassroomSelection(content) {
+    content.innerHTML = `
+      <div class="classrooms-section">
+        <div class="section-header">
+          <h2>🏫 Select a Classroom</h2>
+          <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
+        </div>
+        <div id="classroomsList" class="classrooms-grid">
+          <p style="text-align: center; color: #6b7280;">Loading classrooms...</p>
+        </div>
+      </div>
+    `;
+
+    const container = document.getElementById('classroomsList');
+    const result = await Utils.apiRequest('/api/classes');
+
+    if (result.success) {
+      const classes = result.data || [];
+      
+      if (classes.length === 0) {
+        Utils.showEmpty(container, 'No classrooms available. Please create a classroom first.');
+        return;
+      }
+
+      container.innerHTML = classes.map(cls => `
+        <div class="classroom-card" data-class-id="${cls.id}" data-class-name="${cls.name}" data-class-type="${cls.type}">
+          <div class="classroom-icon">
+            ${this.getClassroomIcon(cls.type)}
+          </div>
+          <h3>${cls.name}</h3>
+          <p class="classroom-type">${this.getClassTypeLabel(cls.type)}</p>
+          ${cls.capacity ? `<p class="classroom-capacity">Capacity: ${cls.capacity}</p>` : ''}
+          ${cls.room_location ? `<p class="classroom-location">📍 ${cls.room_location}</p>` : ''}
+          <div class="classroom-actions">
+            <button class="btn-primary classroom-select-btn">Select Room</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Attach click events
+      container.querySelectorAll('.classroom-card').forEach(card => {
+        const selectBtn = card.querySelector('.classroom-select-btn');
+        selectBtn.addEventListener('click', () => {
+          const classId = card.dataset.classId;
+          const className = card.dataset.className;
+          const classType = card.dataset.classType;
+          this.showClassroomOptions(classId, className, classType);
+        });
+      });
+    } else {
+      Utils.showError(container, 'Failed to load classrooms');
+    }
+  },
+
+  getClassroomIcon(type) {
+    const icons = {
+      'regular': '👶',
+      'ftv': '🌟',
+      'special': '💙',
+      'event': '🎉'
+    };
+    return icons[type] || '🏫';
+  },
+
+  getClassTypeLabel(type) {
+    const labels = {
+      'regular': 'Regular Class',
+      'ftv': 'First Time Visitors',
+      'special': 'Special Needs',
+      'event': 'Special Event'
+    };
+    return labels[type] || type;
+  },
+
+  showClassroomOptions(classId, className, classType) {
+    // Store selected classroom context
+    this.selectedClassroom = { id: classId, name: className, type: classType };
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>🏫 ${className}</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="classroom-options">
+          <h3 style="margin-bottom: 1.5rem; color: #64748b;">What would you like to do?</h3>
+          
+          <div class="option-card" id="regularCheckinOption">
+            <div class="option-icon">🔍</div>
+            <h4>Search & Check-in</h4>
+            <p>Search for an existing child and check them into this classroom</p>
+          </div>
+
+          <div class="option-card" id="ftvCheckinOption">
+            <div class="option-icon">🌟</div>
+            <h4>New FTV Check-in</h4>
+            <p>Register a first-time visitor and check them into this classroom</p>
+          </div>
+
+          ${classType === 'special' ? `
+          <div class="option-card" id="specialNeedsOption">
+            <div class="option-icon">💙</div>
+            <h4>Special Needs Form</h4>
+            <p>Fill out special needs information for a child</p>
+          </div>
+          ` : ''}
+
+          <div class="option-card" id="viewClassBoardOption">
+            <div class="option-icon">📋</div>
+            <h4>View Class Board</h4>
+            <p>See all children currently checked into this classroom</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close button
+    modal.querySelector('.close-btn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    // Option handlers
+    document.getElementById('regularCheckinOption').addEventListener('click', () => {
+      modal.remove();
+      this.loadCheckinViewForClassroom(classId, className);
+    });
+
+    document.getElementById('ftvCheckinOption').addEventListener('click', () => {
+      modal.remove();
+      this.showFTVRegistrationForm(classId, className);
+    });
+
+    const specialNeedsOption = document.getElementById('specialNeedsOption');
+    if (specialNeedsOption) {
+      specialNeedsOption.addEventListener('click', () => {
+        modal.remove();
+        this.showSpecialNeedsForm();
+      });
+    }
+
+    document.getElementById('viewClassBoardOption').addEventListener('click', () => {
+      modal.remove();
+      this.viewClassBoard(classId, className);
+    });
+  },
+
+  loadCheckinViewForClassroom(classId, className) {
+    const content = document.getElementById('dashboardContent');
+    content.innerHTML = `
+      <div class="checkin-section">
+        <div class="section-header">
+          <h2>🏫 ${className} - Check-in</h2>
+          <button class="btn-secondary" id="backToClassrooms">← Back to Classrooms</button>
+        </div>
+        <form id="checkinForm" class="form">
+          <div class="form-group">
+            <label>Search for Child</label>
+            <input type="text" id="childSearch" placeholder="Type child's name...">
+            <div id="childResults" class="search-results"></div>
+          </div>
+          <div id="selectedChild" class="selected-child" style="display:none;">
+            <h3>Selected Child</h3>
+            <div id="childInfo"></div>
+            
+            <input type="hidden" id="selectedClassId" value="${classId}">
+            
+            <button type="submit" class="btn-primary" style="margin-top: 1rem;">Check In to ${className}</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    // Back button
+    setTimeout(() => {
+      document.getElementById('backToClassrooms').addEventListener('click', () => {
+        this.switchView('classrooms');
+      });
+    }, 0);
+
+    this.setupChildSearchForClassroom(classId);
+  },
+
+  setupChildSearchForClassroom(classId) {
+    const searchInput = document.getElementById('childSearch');
+    const resultsDiv = document.getElementById('childResults');
+    let selectedChild = null;
+
+    const debouncedSearch = Utils.debounce(async (query) => {
+      if (query.length < 2) {
+        resultsDiv.innerHTML = '';
+        return;
+      }
+
+      Utils.showLoading(resultsDiv, 'Searching...');
+
+      const result = await Utils.apiRequest(`/api/children/search?query=${encodeURIComponent(query)}&limit=10`);
+
+      if (result.success) {
+        const children = result.data.data || [];
+
+        if (children.length === 0) {
+          Utils.showEmpty(resultsDiv, 'No children found');
+          return;
+        }
+
+        resultsDiv.innerHTML = children.map(child => `
+          <div class="result-item" data-child='${JSON.stringify(child)}'>
+            <strong>${child.first_name} ${child.last_name}</strong>
+            <span>${child.date_of_birth}</span>
+          </div>
+        `).join('');
+
+        resultsDiv.querySelectorAll('.result-item').forEach(item => {
+          item.addEventListener('click', () => {
+            selectedChild = JSON.parse(item.dataset.child);
+            this.displaySelectedChild(selectedChild);
+            resultsDiv.innerHTML = '';
+            searchInput.value = '';
+          });
+        });
+      } else {
+        Utils.showError(resultsDiv, 'Search failed');
+      }
+    }, 300);
+
+    searchInput?.addEventListener('input', (e) => {
+      const query = e.target.value.trim();
+      debouncedSearch(query);
+    });
+
+    const form = document.getElementById('checkinForm');
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (selectedChild) {
+        await this.performCheckInToClassroom(selectedChild, classId);
+      }
+    });
+  },
+
+  async performCheckInToClassroom(child, classId) {
+    // Get parents for this specific child
+    const parentResult = await Utils.apiRequest(`/api/children/${child.id}/parents`);
+    let parentId = null;
+    
+    if (parentResult.success && parentResult.data && parentResult.data.length > 0) {
+      const primaryParent = parentResult.data.find(p => p.is_primary_contact) || parentResult.data[0];
+      parentId = primaryParent.parent_id;
+    } else {
+      Utils.showToast('This child has no linked parent. Please add a parent first.', 'error');
+      if (confirm('Would you like to register a parent for this child now?')) {
+        this.showParentRegistrationModal(child);
+      }
+      return;
+    }
+
+    const user = window.currentUser;
+    
+    const result = await Utils.apiRequest('/api/checkins', {
+      method: 'POST',
+      body: JSON.stringify({
+        child_id: child.id,
+        parent_id: parentId,
+        checked_in_by: user?.id,
+        class_attended: classId,
+      })
+    });
+
+    if (result.success) {
+      this.showSecurityCodeModal(result.data, child);
+      setTimeout(() => {
+        this.switchView('classrooms');
+      }, 3000);
+    } else {
+      Utils.showToast(`Check-in failed: ${result.error}`, 'error');
+    }
+  },
+
+  showFTVRegistrationForm(classId, className) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>🌟 New First-Time Visitor - ${className}</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <form id="ftvRegForm" class="form">
+          <h3 style="margin-bottom: 1rem; color: #2563eb;">Child Information</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>First Name <span class="required">*</span></label>
+              <input type="text" id="ftvChildFirstName" required>
+            </div>
+            <div class="form-group">
+              <label>Last Name <span class="required">*</span></label>
+              <input type="text" id="ftvChildLastName" required>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>Date of Birth <span class="required">*</span></label>
+              <input type="date" id="ftvChildDOB" required>
+            </div>
+            <div class="form-group">
+              <label>Gender</label>
+              <select id="ftvChildGender">
+                <option value="">Select...</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Allergies</label>
+            <textarea id="ftvChildAllergies" rows="2" placeholder="List any allergies..."></textarea>
+          </div>
+
+          <h3 style="margin: 1.5rem 0 1rem 0; color: #2563eb;">Parent/Guardian Information</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>First Name <span class="required">*</span></label>
+              <input type="text" id="ftvParentFirstName" required>
+            </div>
+            <div class="form-group">
+              <label>Last Name <span class="required">*</span></label>
+              <input type="text" id="ftvParentLastName" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Phone Number <span class="required">*</span></label>
+              <input type="tel" id="ftvParentPhone" required placeholder="(555) 123-4567">
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="ftvParentEmail" placeholder="parent@example.com">
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary cancel-ftv-btn">Cancel</button>
+            <button type="submit" class="btn-primary">Register & Check-in</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('.close-btn').addEventListener('click', () => modal.remove());
+    modal.querySelector('.cancel-ftv-btn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    document.getElementById('ftvRegForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.processFTVRegistration(classId, modal);
+    });
+  },
+
+  async processFTVRegistration(classId, modal) {
+    const submitBtn = modal.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Processing...';
+
+    // 1. Create parent
+    const parentData = {
+      first_name: document.getElementById('ftvParentFirstName').value.trim(),
+      last_name: document.getElementById('ftvParentLastName').value.trim(),
+      phone_number: document.getElementById('ftvParentPhone').value.trim(),
+      email: document.getElementById('ftvParentEmail').value.trim() || null,
+    };
+
+    const parentResult = await Utils.apiRequest('/api/parents', {
+      method: 'POST',
+      body: JSON.stringify(parentData)
+    });
+
+    if (!parentResult.success) {
+      Utils.showToast(`Failed to register parent: ${parentResult.error}`, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Register & Check-in';
+      return;
+    }
+
+    const parentId = parentResult.data.data.id;
+
+    // 2. Create child
+    const childData = {
+      first_name: document.getElementById('ftvChildFirstName').value.trim(),
+      last_name: document.getElementById('ftvChildLastName').value.trim(),
+      date_of_birth: document.getElementById('ftvChildDOB').value,
+      gender: document.getElementById('ftvChildGender').value || null,
+      allergies: document.getElementById('ftvChildAllergies').value.trim() || null,
+    };
+
+    const childResult = await Utils.apiRequest('/api/children', {
+      method: 'POST',
+      body: JSON.stringify(childData)
+    });
+
+    if (!childResult.success) {
+      Utils.showToast(`Failed to register child: ${childResult.error}`, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Register & Check-in';
+      return;
+    }
+
+    const childId = childResult.data.data.id;
+
+    // 3. Link parent and child
+    const linkResult = await Utils.apiRequest('/api/parents/link-child', {
+      method: 'POST',
+      body: JSON.stringify({
+        parent_id: parentId,
+        child_id: childId,
+        relationship_type: 'parent',
+        is_primary_contact: true
+      })
+    });
+
+    if (!linkResult.success) {
+      Utils.showToast(`Warning: Failed to link parent and child: ${linkResult.error}`, 'warning');
+    }
+
+    // 4. Check-in the child
+    const user = window.currentUser;
+    const checkinResult = await Utils.apiRequest('/api/checkins', {
+      method: 'POST',
+      body: JSON.stringify({
+        child_id: childId,
+        parent_id: parentId,
+        checked_in_by: user?.id,
+        class_attended: classId,
+      })
+    });
+
+    if (checkinResult.success) {
+      modal.remove();
+      this.showSecurityCodeModal(checkinResult.data, childResult.data.data);
+      Utils.showToast('First-time visitor registered and checked in successfully!', 'success');
+      setTimeout(() => {
+        this.switchView('classrooms');
+      }, 3000);
+    } else {
+      Utils.showToast(`Check-in failed: ${checkinResult.error}`, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Register & Check-in';
+    }
+  },
+
+  showSpecialNeedsForm() {
+    Utils.showToast('Special needs form coming soon!', 'info');
   },
 
   loadCheckinView(content) {
