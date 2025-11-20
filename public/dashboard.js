@@ -203,15 +203,29 @@ const DashboardNav = {
       </div>
     `;
 
-    // Use event delegation on the content container
+    // Remove existing event listener if it exists
+    if (content._createClassHandler) {
+      content.removeEventListener('click', content._createClassHandler, true);
+    }
+
+    // Create and store the event handler
     const self = this;
-    content.addEventListener('click', function(e) {
-      if (e.target && (e.target.id === 'createClassBtn' || e.target.getAttribute('data-action') === 'create-class')) {
-        e.preventDefault();
-        e.stopPropagation();
-        self.showCreateClassModal();
+    content._createClassHandler = function(e) {
+      // Check if clicked element or any parent is the button
+      let target = e.target;
+      while (target && target !== content) {
+        if (target.id === 'createClassBtn' || target.getAttribute('data-action') === 'create-class') {
+          e.preventDefault();
+          e.stopPropagation();
+          self.showCreateClassModal();
+          return;
+        }
+        target = target.parentElement;
       }
-    }, true);
+    };
+
+    // Attach the event listener with capture phase
+    content.addEventListener('click', content._createClassHandler, true);
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
