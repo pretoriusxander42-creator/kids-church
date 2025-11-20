@@ -204,6 +204,7 @@ const DashboardNav = {
     `;
 
     // Attach event listener directly to the button after DOM update
+    const self = this; // Save context
     setTimeout(() => {
       const createBtn = document.getElementById('createClassBtn');
       if (createBtn) {
@@ -211,7 +212,7 @@ const DashboardNav = {
         createBtn.addEventListener('click', (e) => {
           console.log('Button clicked!');
           e.preventDefault();
-          this.showCreateClassModal();
+          self.showCreateClassModal();
         });
       } else {
         console.error('Create button not found!');
