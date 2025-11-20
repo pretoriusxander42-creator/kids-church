@@ -2652,12 +2652,12 @@ const DashboardNav = {
         <h3>Create New Classroom</h3>
         <form id="createClassForm" class="form-section">
           <div class="form-group">
-            <label>Classroom Name *</label>
+            <label for="className">Classroom Name *</label>
             <input type="text" id="className" required placeholder="e.g., Toddlers Room A">
           </div>
           
           <div class="form-group">
-            <label>Type *</label>
+            <label for="classType">Type *</label>
             <select id="classType" required>
               <option value="">Select type...</option>
               <option value="regular">Regular Class</option>
@@ -2668,22 +2668,22 @@ const DashboardNav = {
           </div>
           
           <div class="form-group">
-            <label>Age Range</label>
+            <label for="classAgeRange">Age Range</label>
             <input type="text" id="classAgeRange" placeholder="e.g., 2-4 years">
           </div>
           
           <div class="form-group">
-            <label>Maximum Capacity</label>
+            <label for="classCapacity">Maximum Capacity</label>
             <input type="number" id="classCapacity" min="1" placeholder="e.g., 20">
           </div>
           
           <div class="form-group">
-            <label>Room Number</label>
+            <label for="classRoomNumber">Room Number</label>
             <input type="text" id="classRoomNumber" placeholder="e.g., 101">
           </div>
           
           <div class="form-group">
-            <label>Room Location</label>
+            <label for="classRoomLocation">Room Location</label>
             <input type="text" id="classRoomLocation" placeholder="e.g., Building A, First Floor">
           </div>
           
