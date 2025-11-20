@@ -188,32 +188,54 @@ const DashboardNav = {
     try {
       const result = await Utils.apiRequest('/api/statistics/classes/membership');
       
+      console.log('Membership API response:', result);
+      
       if (result.success) {
-        const { totalMembers, classes } = result.data;
+        // The API returns { classes: [...], totalMembers: N } directly in result.data
+        const totalMembers = result.data.totalMembers;
+        const classes = result.data.classes;
+        
+        console.log('Total members:', totalMembers);
+        console.log('Classes data:', classes);
         
         // Update total
-        totalElement.textContent = totalMembers;
+        totalElement.textContent = totalMembers || 0;
         
         // Update breakdown by class
         if (byClassElement && classes && classes.length > 0) {
-          byClassElement.innerHTML = classes
-            .filter(c => c.memberCount > 0)
-            .map(c => `
-              <div style="display: flex; justify-content: space-between; padding: 0.25rem 0;">
-                <span style="color: #6b7280;">${c.name}:</span>
-                <span style="font-weight: 600;">${c.memberCount}</span>
-              </div>
-            `).join('');
+          const classesWithMembers = classes.filter(c => c.memberCount > 0);
+          
+          if (classesWithMembers.length > 0) {
+            byClassElement.innerHTML = classesWithMembers
+              .map(c => `
+                <div style="display: flex; justify-content: space-between; padding: 0.25rem 0;">
+                  <span style="color: #6b7280;">${c.name}:</span>
+                  <span style="font-weight: 600;">${c.memberCount}</span>
+                </div>
+              `).join('');
+          } else {
+            byClassElement.innerHTML = '<div style="color: #9ca3af; font-size: 0.85rem; text-align: center;">No children assigned to classrooms</div>';
+          }
+        } else {
+          if (byClassElement) {
+            byClassElement.innerHTML = '<div style="color: #9ca3af; font-size: 0.85rem; text-align: center;">No classrooms found</div>';
+          }
         }
 
         // Create pie chart
         this.createMembershipPieChart(classes);
       } else {
         totalElement.textContent = 'Error';
-        console.error('Failed to load membership stats:', result.error);
+        if (byClassElement) {
+          byClassElement.innerHTML = `<div style="color: #ef4444; font-size: 0.85rem;">${result.error || 'Failed to load data'}</div>`;
+        }
+        console.error('Failed to load membership stats:', result);
       }
     } catch (error) {
       totalElement.textContent = 'Error';
+      if (byClassElement) {
+        byClassElement.innerHTML = `<div style="color: #ef4444; font-size: 0.85rem;">Network error</div>`;
+      }
       console.error('Failed to load membership stats:', error);
     }
   },
