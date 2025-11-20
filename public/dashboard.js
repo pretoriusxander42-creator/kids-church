@@ -221,7 +221,11 @@ const DashboardNav = {
     }, 0);
     
     this.setupChildSearch();
-    this.loadClassesForCheckIn();
+    
+    // Load classes after DOM is ready
+    setTimeout(() => {
+      this.loadClassesForCheckIn();
+    }, 100);
   },
 
   setupChildSearch() {
@@ -241,7 +245,7 @@ const DashboardNav = {
       const result = await Utils.apiRequest(`/api/children/search?query=${encodeURIComponent(query)}&limit=10`);
 
       if (result.success) {
-        const children = result.data || [];
+        const children = result.data.data || [];
 
         if (children.length === 0) {
           Utils.showEmpty(resultsDiv, 'No children found');
