@@ -1106,14 +1106,14 @@ const DashboardNav = {
     content.innerHTML = `
       <div class="section-header">
         <h2>Classes</h2>
-        <button class="btn-secondary" id="createClassBtn">+ Create Class</button>
+        <button class="btn-secondary" id="createClassBtnClassesView">+ Create Class</button>
       </div>
       <div id="classList"></div>
     `;
     
     // Attach event listener for create class button
     setTimeout(() => {
-      const createBtn = document.getElementById('createClassBtn');
+      const createBtn = document.getElementById('createClassBtnClassesView');
       if (createBtn) {
         createBtn.addEventListener('click', () => this.showClassModal());
       }
