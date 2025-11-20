@@ -240,6 +240,64 @@ body {
     color: #94a3b8;
 }
 
+.form-group select,
+.form-group textarea {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s;
+    background-color: var(--surface);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.form-group select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.25rem;
+    padding-right: 2.75rem;
+}
+
+.form-group select:hover {
+    border-color: var(--secondary-color);
+    background-color: #fafbfc;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    background-color: var(--surface);
+}
+
+.form-group select:disabled {
+    background-color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.form-group select option {
+    padding: 0.75rem;
+    color: var(--text-primary);
+    background-color: var(--surface);
+}
+
+.form-group select option:disabled {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
 .btn-primary {
     background-color: var(--primary-color);
     color: white;
@@ -573,6 +631,42 @@ body {
     padding: 0.75rem;
     border-radius: 6px;
     border-left: 3px solid var(--warning-color);
+}
+
+/* Class Capacity Info */
+#classCapacityInfo {
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 6px;
+    border: 1px solid #bae6fd;
+    font-size: 0.875rem;
+    color: #0c4a6e;
+    line-height: 1.5;
+}
+
+#classCapacityInfo strong {
+    color: #075985;
+    font-weight: 600;
+}
+
+#classCapacityInfo.full {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #fecaca;
+    color: #7f1d1d;
+}
+
+#classCapacityInfo.full strong {
+    color: #991b1b;
+}
+
+#classCapacityInfo.nearly-full {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: #fde68a;
+    color: #78350f;
+}
+
+#classCapacityInfo.nearly-full strong {
+    color: #92400e;
 }
 
 /* Activity Cards */
