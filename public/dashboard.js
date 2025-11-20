@@ -1137,7 +1137,7 @@ const DashboardNav = {
         const checkIns = result.data || [];
         // Filter for this class and currently checked in (no check_out_time)
         const classChildren = checkIns.filter(ci => 
-          ci.class_id === classId && !ci.check_out_time
+          ci.class_attended === classId && !ci.check_out_time
         );
 
         if (classChildren.length === 0) {
