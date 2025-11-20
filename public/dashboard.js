@@ -236,6 +236,29 @@ const DashboardNav = {
     content.addEventListener('click', content._createClassHandler, true);
     console.log('[SETUP] Event listener attached to content element');
 
+    // ALSO add a direct click handler to the button after a short delay
+    setTimeout(() => {
+      const btn = document.getElementById('createClassBtn');
+      if (btn) {
+        console.log('[DIRECT SETUP] Found button, attaching direct click listener');
+        btn.onclick = function(e) {
+          console.log('[DIRECT ONCLICK] Direct button click handler fired!');
+          alert('DIRECT CLICK HANDLER FIRED!');
+          e.preventDefault();
+          self.showCreateClassModal();
+          return false;
+        };
+        
+        // Also test if button is actually clickable
+        console.log('[BUTTON CHECK] Button exists:', btn);
+        console.log('[BUTTON CHECK] Button visible:', btn.offsetParent !== null);
+        console.log('[BUTTON CHECK] Button disabled:', btn.disabled);
+        console.log('[BUTTON CHECK] Pointer events:', window.getComputedStyle(btn).pointerEvents);
+      } else {
+        console.error('[DIRECT SETUP] Button with id createClassBtn NOT FOUND!');
+      }
+    }, 100);
+
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
 
