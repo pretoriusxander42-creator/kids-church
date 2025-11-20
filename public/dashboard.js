@@ -19,7 +19,6 @@ const DashboardNav = {
         <button class="nav-tab" data-view="ftv">FTV Board</button>
         <button class="nav-tab" data-view="special-needs">Special Needs</button>
         <button class="nav-tab" data-view="manage-children">Manage Children</button>
-        <button class="nav-tab" data-view="reports">Reports</button>
       </div>
       <div id="dashboardContent" class="dashboard-content"></div>
     `;
@@ -79,9 +78,6 @@ const DashboardNav = {
       case 'manage-children':
         this.loadChildManagement(content);
         break;
-      case 'reports':
-        this.loadReports(content);
-        break;
     }
   },
 
@@ -116,6 +112,12 @@ const DashboardNav = {
         <div class="section-header">
           <h2>Overview</h2>
           <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-secondary" id="exportDataBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M14 10v2.667A1.333 1.333 0 0112.667 14H3.333A1.333 1.333 0 012 12.667V10M4.667 6.667L8 10m0 0l3.333-3.333M8 10V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Export Data
+            </button>
             <button class="btn-secondary" id="addChildBtn">+ Add Child</button>
             <button class="btn-secondary" id="addParentBtn">+ Add Parent</button>
             <button class="btn-secondary" id="manageChildrenBtn">Manage Children</button>
@@ -151,10 +153,14 @@ const DashboardNav = {
     // Use setTimeout to ensure DOM is ready after innerHTML update
     setTimeout(() => {
       // Attach event listeners to quick action buttons
+      const exportDataBtn = document.getElementById('exportDataBtn');
       const addChildBtn = document.getElementById('addChildBtn');
       const addParentBtn = document.getElementById('addParentBtn');
       const manageChildrenBtn = document.getElementById('manageChildrenBtn');
       
+      if (exportDataBtn) {
+        exportDataBtn.addEventListener('click', () => this.showExportModal());
+      }
       if (addChildBtn) {
         addChildBtn.addEventListener('click', () => this.showChildRegistrationModal());
       }
@@ -2344,6 +2350,94 @@ const DashboardNav = {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Form';
     }
+  },
+
+  showExportModal() {
+    const today = new Date().toISOString().split('T')[0];
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <h2>Export Attendance Data</h2>
+          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        <div style="padding: 1.5rem;">
+          <p style="margin-bottom: 1.5rem; color: #6b7280;">Download attendance data between two dates in CSV format.</p>
+          
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label>Start Date</label>
+            <input type="date" id="exportStartDate" value="${today}" style="width: 100%; padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 4px;">
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label>End Date</label>
+            <input type="date" id="exportEndDate" value="${today}" style="width: 100%; padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 4px;">
+          </div>
+          
+          <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+            <button class="btn-primary" id="downloadCsvBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M14 10v2.667A1.333 1.333 0 0112.667 14H3.333A1.333 1.333 0 012 12.667V10M4.667 6.667L8 10m0 0l3.333-3.333M8 10V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Download CSV
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add download handler
+    setTimeout(() => {
+      const downloadBtn = document.getElementById('downloadCsvBtn');
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+          const start = document.getElementById('exportStartDate').value || today;
+          const end = document.getElementById('exportEndDate').value || start;
+          
+          // Get token from localStorage
+          const token = localStorage.getItem('token');
+          
+          // Create a download link with authentication
+          const url = `/api/statistics/attendance/export.csv?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+          
+          // Use fetch with authentication header
+          fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Failed to download CSV');
+            }
+            return response.blob();
+          })
+          .then(blob => {
+            // Create a download link
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `attendance_${start}_to_${end}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(downloadUrl);
+            
+            // Close modal
+            modal.remove();
+            Utils.showToast('CSV downloaded successfully!', 'success');
+          })
+          .catch(error => {
+            console.error('Download error:', error);
+            Utils.showToast('Failed to download CSV: ' + error.message, 'error');
+          });
+        });
+      }
+    }, 0);
   },
 
   showChildRegistrationModal() {
