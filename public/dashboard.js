@@ -3670,22 +3670,29 @@ const DashboardNav = {
         const cell = document.getElementById(`parents-cell-${child.id}`);
         if (!cell) return;
 
-        const parentsData = parentsResults[index];
+        const result = parentsResults[index];
         
-        if (parentsData && Array.isArray(parentsData) && parentsData.length > 0) {
-          const parentNames = parentsData.map(rel => {
-            const parent = rel.parents;
-            const relationshipBadge = rel.relationship_type 
-              ? `<span style="font-size: 0.7rem; color: #6b7280; margin-left: 0.25rem;">(${rel.relationship_type})</span>`
-              : '';
-            return `${parent.first_name} ${parent.last_name}${relationshipBadge}`;
-          }).join('<br>');
+        // Check if request was successful and extract the data array
+        if (result && result.success && result.data) {
+          const parentsData = result.data;
           
-          cell.innerHTML = `
-            <div style="font-size: 0.85rem; line-height: 1.4;">
-              ${parentNames}
-            </div>
-          `;
+          if (Array.isArray(parentsData) && parentsData.length > 0) {
+            const parentNames = parentsData.map(rel => {
+              const parent = rel.parents;
+              const relationshipBadge = rel.relationship_type 
+                ? `<span style="font-size: 0.7rem; color: #6b7280; margin-left: 0.25rem;">(${rel.relationship_type})</span>`
+                : '';
+              return `${parent.first_name} ${parent.last_name}${relationshipBadge}`;
+            }).join('<br>');
+            
+            cell.innerHTML = `
+              <div style="font-size: 0.85rem; line-height: 1.4;">
+                ${parentNames}
+              </div>
+            `;
+          } else {
+            cell.innerHTML = `<span style="color: #9ca3af; font-size: 0.85rem; font-style: italic;">No parents linked</span>`;
+          }
         } else {
           cell.innerHTML = `<span style="color: #9ca3af; font-size: 0.85rem; font-style: italic;">No parents linked</span>`;
         }
