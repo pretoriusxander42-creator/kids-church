@@ -130,14 +130,27 @@ const DashboardNav = {
             <p class="big-number" id="totalMembership">Loading...</p>
             <div id="membershipByClass" style="margin-top: 1rem; font-size: 0.9rem;"></div>
           </div>
-          <div class="activity-card">
-            <h3>Check-ins for Selected Sunday</h3>
-            <div style="margin-bottom: 1rem;">
+          <div class="activity-card" style="padding: 1.5rem;">
+            <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: #111827;">Check-ins for Selected Sunday</h3>
+            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;">Select a date to view attendance details</p>
+            <div style="margin-bottom: 1.5rem;">
               <input type="date" id="sundayDatePicker" value="${today}" 
-                     style="padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 1rem;">
+                     style="width: 100%; padding: 0.625rem 1rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; background: white;">
             </div>
-            <p class="big-number" id="sundayCheckIns">Loading...</p>
-            <div id="checkInsByClass" style="margin-top: 1rem; font-size: 0.9rem;"></div>
+            
+            <div id="checkInsLoadingState" style="display: flex; align-items: center; justify-content: center; padding: 2rem; color: #6b7280;">
+              <div class="spinner" style="width: 24px; height: 24px; border-width: 2px; margin-right: 0.75rem;"></div>
+              <span>Loading check-ins...</span>
+            </div>
+            
+            <div id="checkInsContent" style="display: none;">
+              <div style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; text-align: center;">
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem; font-weight: 500;">TOTAL CHECK-INS</div>
+                <div style="font-size: 2.5rem; font-weight: 700; color: #3b82f6;" id="sundayCheckIns">0</div>
+              </div>
+              
+              <div id="checkInsByClass"></div>
+            </div>
           </div>
         </div>
 
@@ -355,11 +368,14 @@ const DashboardNav = {
   async loadCheckInsForDate(date) {
     const totalElement = document.getElementById('sundayCheckIns');
     const byClassElement = document.getElementById('checkInsByClass');
+    const loadingState = document.getElementById('checkInsLoadingState');
+    const content = document.getElementById('checkInsContent');
     
     if (!totalElement) return;
 
-    totalElement.textContent = 'Loading...';
-    if (byClassElement) byClassElement.innerHTML = '';
+    // Show loading state
+    if (loadingState) loadingState.style.display = 'flex';
+    if (content) content.style.display = 'none';
 
     try {
       const result = await Utils.apiRequest(`/api/statistics/checkins/by-date?date=${date}`);
@@ -367,30 +383,104 @@ const DashboardNav = {
       if (result.success) {
         const { totalCheckIns, byClass } = result.data;
         
-        // Update total
+        // Hide loading, show content
+        if (loadingState) loadingState.style.display = 'none';
+        if (content) content.style.display = 'block';
+        
+        // Update total with animation
         totalElement.textContent = totalCheckIns;
         
-        // Update breakdown by class
+        // Format the selected date
+        const selectedDate = new Date(date + 'T00:00:00');
+        const formattedDate = selectedDate.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        
+        // Update breakdown by class with professional styling
         if (byClassElement && byClass && byClass.length > 0) {
-          byClassElement.innerHTML = byClass
-            .filter(c => c.checkInCount > 0)
-            .map(c => `
-              <div style="display: flex; justify-content: space-between; padding: 0.25rem 0;">
-                <span style="color: #6b7280;">${c.name}:</span>
-                <span style="font-weight: 600;">${c.checkInCount}</span>
-              </div>
-            `).join('');
+          const hasCheckIns = byClass.some(c => c.checkInCount > 0);
           
-          if (byClass.every(c => c.checkInCount === 0)) {
-            byClassElement.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 0.5rem;">No check-ins for this date</div>';
+          if (hasCheckIns) {
+            byClassElement.innerHTML = `
+              <div style="margin-bottom: 0.75rem;">
+                <div style="font-size: 0.85rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Breakdown by Classroom</div>
+                <div style="font-size: 0.8rem; color: #9ca3af; margin-top: 0.25rem;">${formattedDate}</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                ${byClass
+                  .filter(c => c.checkInCount > 0)
+                  .sort((a, b) => b.checkInCount - a.checkInCount)
+                  .map((c, index) => {
+                    const percentage = totalCheckIns > 0 ? ((c.checkInCount / totalCheckIns) * 100).toFixed(1) : 0;
+                    const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444', '#6366f1', '#14b8a6', '#f97316'];
+                    const color = colors[index % colors.length];
+                    
+                    return `
+                      <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.875rem; transition: all 0.2s;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 8px; height: 8px; border-radius: 50%; background: ${color};"></div>
+                            <span style="font-weight: 600; color: #111827; font-size: 0.95rem;">${c.name}</span>
+                          </div>
+                          <span style="font-size: 1.25rem; font-weight: 700; color: ${color};">${c.checkInCount}</span>
+                        </div>
+                        <div style="background: #f3f4f6; border-radius: 4px; height: 6px; overflow: hidden;">
+                          <div style="background: ${color}; height: 100%; width: ${percentage}%; transition: width 0.5s ease;"></div>
+                        </div>
+                        <div style="margin-top: 0.375rem; font-size: 0.8rem; color: #6b7280; text-align: right;">
+                          ${percentage}% of total
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+              </div>
+            `;
+          } else {
+            byClassElement.innerHTML = `
+              <div style="text-align: center; padding: 2rem;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #d1d5db;">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <p style="color: #6b7280; font-weight: 600; margin: 0 0 0.25rem 0;">No Check-ins</p>
+                <p style="color: #9ca3af; font-size: 0.9rem; margin: 0;">No children were checked in on ${formattedDate}</p>
+              </div>
+            `;
           }
         }
       } else {
+        // Show error state
+        if (loadingState) loadingState.style.display = 'none';
+        if (content) content.style.display = 'block';
         totalElement.textContent = 'Error';
+        if (byClassElement) {
+          byClassElement.innerHTML = `
+            <div style="text-align: center; padding: 2rem;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #ef4444;">
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <p style="color: #ef4444; font-weight: 600;">Error loading check-ins</p>
+            </div>
+          `;
+        }
         console.error('Failed to load check-ins:', result.error);
       }
     } catch (error) {
+      if (loadingState) loadingState.style.display = 'none';
+      if (content) content.style.display = 'block';
       totalElement.textContent = 'Error';
+      if (byClassElement) {
+        byClassElement.innerHTML = `
+          <div style="text-align: center; padding: 2rem;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #ef4444;">
+              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p style="color: #ef4444; font-weight: 600;">Error loading check-ins</p>
+          </div>
+        `;
+      }
       console.error('Failed to load check-ins:', error);
     }
   },
