@@ -286,7 +286,8 @@ const DashboardNav = {
           ${cls.room_location ? `<p class="classroom-location">📍 ${cls.room_location}</p>` : ''}
           <div class="classroom-actions">
             <button class="btn-primary classroom-select-btn">Select Room</button>
-            <button class="btn-danger classroom-delete-btn" data-class-id="${cls.id}" data-class-name="${cls.name}">🗑️</button>
+            <button class="btn-secondary classroom-edit-btn" data-class-id="${cls.id}">Edit</button>
+            <button class="btn-danger classroom-delete-btn" data-class-id="${cls.id}" data-class-name="${cls.name}">Delete</button>
           </div>
         </div>
       `).join('');
@@ -299,6 +300,13 @@ const DashboardNav = {
           const className = card.dataset.className;
           const classType = card.dataset.classType;
           this.showClassroomOptions(classId, className, classType);
+        });
+
+        const editBtn = card.querySelector('.classroom-edit-btn');
+        editBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const classId = editBtn.dataset.classId;
+          await this.showEditClassModal(classId);
         });
 
         const deleteBtn = card.querySelector('.classroom-delete-btn');
@@ -1907,6 +1915,10 @@ const DashboardNav = {
             </div>
           ` : ''}
         </div>
+        <div class="form-actions" style="margin-top: 1.5rem;">
+          <button class="btn-primary" id="editChildBtn">Edit Details</button>
+          <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+        </div>
       </div>
     `;
 
@@ -1915,6 +1927,11 @@ const DashboardNav = {
     modal.querySelector('.close-btn').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.remove();
+    });
+    
+    modal.querySelector('#editChildBtn').addEventListener('click', () => {
+      modal.remove();
+      this.showEditChildModal(child);
     });
   },
 
@@ -2795,6 +2812,106 @@ const DashboardNav = {
     }
   },
 
+  async showEditClassModal(classId) {
+    // Fetch current class data
+    const result = await Utils.apiRequest(`/api/classes/${classId}`);
+    
+    if (!result.success) {
+      Utils.showToast('Failed to load classroom data', 'error');
+      return;
+    }
+
+    const classData = result.data;
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px;">
+        <h3>Edit Classroom</h3>
+        <form id="editClassForm" class="form-section">
+          <div class="form-group">
+            <label for="editClassName">Classroom Name *</label>
+            <input type="text" id="editClassName" required placeholder="e.g., Toddlers Room A" value="${classData.name || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editClassType">Type *</label>
+            <select id="editClassType" required>
+              <option value="">Select type...</option>
+              <option value="regular" ${classData.type === 'regular' ? 'selected' : ''}>Regular Class</option>
+              <option value="ftv" ${classData.type === 'ftv' ? 'selected' : ''}>First Time Visitors</option>
+              <option value="special" ${classData.type === 'special' ? 'selected' : ''}>Special Needs</option>
+              <option value="event" ${classData.type === 'event' ? 'selected' : ''}>Special Event</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="editClassDescription">Description</label>
+            <textarea id="editClassDescription" placeholder="Description" rows="3">${classData.description || ''}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="editClassCapacity">Maximum Capacity</label>
+            <input type="number" id="editClassCapacity" min="1" placeholder="e.g., 20" value="${classData.capacity || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editClassRoomLocation">Room Location</label>
+            <input type="text" id="editClassRoomLocation" placeholder="e.g., Building A, First Floor" value="${classData.room_location || ''}">
+          </div>
+          
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Update Classroom</button>
+            <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const form = document.getElementById('editClassForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.updateClass(classId, modal);
+    });
+  },
+
+  async updateClass(classId, modal) {
+    const form = document.getElementById('editClassForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    const classData = {
+      name: document.getElementById('editClassName').value,
+      type: document.getElementById('editClassType').value,
+      description: document.getElementById('editClassDescription').value || null,
+      capacity: parseInt(document.getElementById('editClassCapacity').value) || null,
+      room_location: document.getElementById('editClassRoomLocation').value || null
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+
+    const result = await Utils.apiRequest(`/api/classes/${classId}`, {
+      method: 'PUT',
+      body: JSON.stringify(classData)
+    });
+
+    if (result.success) {
+      Utils.showToast('Classroom updated successfully!', 'success');
+      modal.remove();
+      // Reload classroom list
+      const content = document.getElementById('dashboardContent');
+      if (content) {
+        await this.loadClassroomSelection(content);
+      }
+    } else {
+      Utils.showToast(`Failed to update classroom: ${result.error}`, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Update Classroom';
+    }
+  },
+
   // Child Management View
   async loadChildManagement(content) {
     content.innerHTML = `
@@ -3014,6 +3131,119 @@ const DashboardNav = {
     }
   },
 
+  async showEditChildModal(child) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <h3>Edit Child Details</h3>
+        <form id="editChildForm" class="form-section">
+          <div class="form-group">
+            <label for="editChildFirstName">First Name *</label>
+            <input type="text" id="editChildFirstName" required value="${child.first_name || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editChildLastName">Last Name *</label>
+            <input type="text" id="editChildLastName" required value="${child.last_name || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editChildDOB">Date of Birth</label>
+            <input type="date" id="editChildDOB" value="${child.date_of_birth || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editChildGender">Gender</label>
+            <select id="editChildGender">
+              <option value="">Not specified</option>
+              <option value="male" ${child.gender === 'male' ? 'selected' : ''}>Male</option>
+              <option value="female" ${child.gender === 'female' ? 'selected' : ''}>Female</option>
+              <option value="other" ${child.gender === 'other' ? 'selected' : ''}>Other</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="editChildAllergies">Allergies</label>
+            <textarea id="editChildAllergies" rows="2" placeholder="Any known allergies">${child.allergies || ''}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="editChildMedicalNotes">Medical Notes</label>
+            <textarea id="editChildMedicalNotes" rows="3" placeholder="Important medical information">${child.medical_notes || ''}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 0.5rem;">
+              <input type="checkbox" id="editChildSpecialNeeds" ${child.special_needs ? 'checked' : ''}>
+              <span>Special Needs</span>
+            </label>
+          </div>
+          
+          <div class="form-group" id="editSpecialNeedsDetailsGroup" style="display: ${child.special_needs ? 'block' : 'none'};">
+            <label for="editChildSpecialNeedsDetails">Special Needs Details</label>
+            <textarea id="editChildSpecialNeedsDetails" rows="3" placeholder="Describe special needs">${child.special_needs_details || ''}</textarea>
+          </div>
+          
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Update Child</button>
+            <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Toggle special needs details visibility
+    const specialNeedsCheckbox = modal.querySelector('#editChildSpecialNeeds');
+    const specialNeedsDetailsGroup = modal.querySelector('#editSpecialNeedsDetailsGroup');
+    specialNeedsCheckbox.addEventListener('change', () => {
+      specialNeedsDetailsGroup.style.display = specialNeedsCheckbox.checked ? 'block' : 'none';
+    });
+    
+    const form = document.getElementById('editChildForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.updateChild(child.id, modal);
+    });
+  },
+
+  async updateChild(childId, modal) {
+    const form = document.getElementById('editChildForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    const childData = {
+      first_name: document.getElementById('editChildFirstName').value,
+      last_name: document.getElementById('editChildLastName').value,
+      date_of_birth: document.getElementById('editChildDOB').value || null,
+      gender: document.getElementById('editChildGender').value || null,
+      allergies: document.getElementById('editChildAllergies').value || null,
+      medical_notes: document.getElementById('editChildMedicalNotes').value || null,
+      special_needs: document.getElementById('editChildSpecialNeeds').checked,
+      special_needs_details: document.getElementById('editChildSpecialNeedsDetails').value || null
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+
+    const result = await Utils.apiRequest(`/api/children/${childId}`, {
+      method: 'PUT',
+      body: JSON.stringify(childData)
+    });
+
+    if (result.success) {
+      Utils.showToast('Child updated successfully!', 'success');
+      modal.remove();
+      // Reload the current view
+      await this.loadChildrenTable();
+    } else {
+      Utils.showToast(`Failed to update child: ${result.error}`, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Update Child';
+    }
+  },
+
   filterChildrenTable() {
     const searchTerm = document.getElementById('childSearchBox')?.value.toLowerCase() || '';
     const rows = document.querySelectorAll('#childrenTable tbody tr');
@@ -3022,6 +3252,107 @@ const DashboardNav = {
       const name = row.querySelector('.child-name')?.textContent.toLowerCase() || '';
       row.style.display = name.includes(searchTerm) ? '' : 'none';
     });
+  },
+
+  async showEditParentModal(parentId) {
+    // Fetch current parent data
+    const result = await Utils.apiRequest(`/api/parents/${parentId}`);
+    
+    if (!result.success) {
+      Utils.showToast('Failed to load parent data', 'error');
+      return;
+    }
+
+    const parent = result.data;
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <h3>Edit Parent Details</h3>
+        <form id="editParentForm" class="form-section">
+          <div class="form-group">
+            <label for="editParentFirstName">First Name *</label>
+            <input type="text" id="editParentFirstName" required value="${parent.first_name || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editParentLastName">Last Name *</label>
+            <input type="text" id="editParentLastName" required value="${parent.last_name || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editParentEmail">Email</label>
+            <input type="email" id="editParentEmail" value="${parent.email || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editParentPhone">Phone Number *</label>
+            <input type="tel" id="editParentPhone" required value="${parent.phone_number || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editParentAddress">Address</label>
+            <textarea id="editParentAddress" rows="2" placeholder="Home address">${parent.address || ''}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="editParentEmergencyName">Emergency Contact Name</label>
+            <input type="text" id="editParentEmergencyName" value="${parent.emergency_contact_name || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label for="editParentEmergencyPhone">Emergency Contact Phone</label>
+            <input type="tel" id="editParentEmergencyPhone" value="${parent.emergency_contact_phone || ''}">
+          </div>
+          
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Update Parent</button>
+            <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const form = document.getElementById('editParentForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.updateParent(parentId, modal);
+    });
+  },
+
+  async updateParent(parentId, modal) {
+    const form = document.getElementById('editParentForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    const parentData = {
+      first_name: document.getElementById('editParentFirstName').value,
+      last_name: document.getElementById('editParentLastName').value,
+      email: document.getElementById('editParentEmail').value || null,
+      phone_number: document.getElementById('editParentPhone').value,
+      address: document.getElementById('editParentAddress').value || null,
+      emergency_contact_name: document.getElementById('editParentEmergencyName').value || null,
+      emergency_contact_phone: document.getElementById('editParentEmergencyPhone').value || null
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+
+    const result = await Utils.apiRequest(`/api/parents/${parentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(parentData)
+    });
+
+    if (result.success) {
+      Utils.showToast('Parent updated successfully!', 'success');
+      modal.remove();
+    } else {
+      Utils.showToast(`Failed to update parent: ${result.error}`, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Update Parent';
+    }
   }
 };
 
