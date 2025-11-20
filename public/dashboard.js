@@ -3237,7 +3237,35 @@ const DashboardNav = {
         return;
       }
 
-      const children = result.data || [];
+      // Handle different response formats
+      let children = [];
+      if (Array.isArray(result.data)) {
+        children = result.data;
+      } else if (result.data && Array.isArray(result.data.children)) {
+        children = result.data.children;
+      } else if (result.data && typeof result.data === 'object') {
+        // If data is an object, try to extract an array from it
+        const possibleArrays = Object.values(result.data).filter(v => Array.isArray(v));
+        if (possibleArrays.length > 0) {
+          children = possibleArrays[0];
+        }
+      }
+
+      // Ensure children is an array
+      if (!Array.isArray(children)) {
+        console.error('Invalid data format received:', result);
+        container.innerHTML = `
+          <div style="padding: 3rem; text-align: center;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #ef4444;">
+              <path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p style="color: #ef4444; font-weight: 600; margin-bottom: 0.5rem;">Invalid data format</p>
+            <p style="color: #6b7280; font-size: 0.9rem;">The server returned an unexpected data format</p>
+            <button class="btn-secondary" onclick="DashboardNav.loadChildrenTable()" style="margin-top: 1rem;">Try Again</button>
+          </div>
+        `;
+        return;
+      }
       
       // Calculate stats
       const now = new Date();
