@@ -1231,3 +1231,332 @@ body {
         text-align: center;
     }
 }
+
+/* Class Board Spreadsheet View */
+.class-board-view {
+    width: 100%;
+    min-height: calc(100vh - 200px);
+}
+
+.class-board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    background: var(--surface);
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+.header-left h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.board-stats {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.stat-badge {
+    padding: 0.5rem 1rem;
+    background: #f1f5f9;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.stat-badge.stat-primary {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: #1e40af;
+    font-weight: 600;
+}
+
+.class-board-table-container {
+    background: var(--surface);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+.spreadsheet-table {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.spreadsheet-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.spreadsheet-table thead {
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.spreadsheet-table th {
+    padding: 1rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+}
+
+.spreadsheet-table th:last-child {
+    border-right: none;
+}
+
+.spreadsheet-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+
+.spreadsheet-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.spreadsheet-table tbody tr:nth-child(even) {
+    background-color: #fafbfc;
+}
+
+.spreadsheet-table tbody tr:nth-child(even):hover {
+    background-color: #f1f5f9;
+}
+
+.spreadsheet-table td {
+    padding: 1rem 0.75rem;
+    border-right: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.spreadsheet-table td:last-child {
+    border-right: none;
+}
+
+.row-number {
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.child-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.child-name strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-special {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.security-code {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #2563eb;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+}
+
+.allergies-cell.has-allergies,
+.medical-cell.has-medical {
+    background: #fef3c7;
+    color: #92400e;
+    font-weight: 500;
+}
+
+.allergies-cell.has-allergies {
+    border-left: 3px solid #f59e0b;
+}
+
+.medical-cell.has-medical {
+    border-left: 3px solid #ea580c;
+}
+
+.actions-cell {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.action-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+    margin: 0 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
+.action-btn:hover {
+    background: var(--background);
+    transform: scale(1.1);
+}
+
+.checkout-btn {
+    color: #10b981;
+    border-color: #10b981;
+}
+
+.checkout-btn:hover {
+    background: #d1fae5;
+}
+
+.print-btn {
+    color: #6366f1;
+    border-color: #6366f1;
+}
+
+.print-btn:hover {
+    background: #e0e7ff;
+}
+
+.info-btn {
+    color: #64748b;
+    border-color: #64748b;
+}
+
+.info-btn:hover {
+    background: #f1f5f9;
+}
+
+/* Child Details Modal */
+.child-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.detail-row {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.detail-value {
+    color: var(--text-primary);
+}
+
+.detail-row.alert-row {
+    background: #fef3c7;
+    border-radius: 6px;
+    border-left: 3px solid #f59e0b;
+}
+
+.detail-row.alert-row .detail-label {
+    color: #92400e;
+}
+
+.detail-row.alert-row .detail-value {
+    color: #92400e;
+    font-weight: 500;
+}
+
+/* Print Styles for Class Board */
+@media print {
+    .header-right button,
+    #backFromClassBoard,
+    .action-btn {
+        display: none !important;
+    }
+    
+    .class-board-header {
+        border-bottom: 2px solid #000 !important;
+    }
+    
+    .spreadsheet-table {
+        font-size: 10pt;
+    }
+    
+    .spreadsheet-table th {
+        background: #000 !important;
+        color: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .spreadsheet-table tbody tr {
+        page-break-inside: avoid;
+    }
+    
+    .security-code {
+        font-weight: 900 !important;
+    }
+}
+
+/* Responsive Class Board */
+@media (max-width: 1024px) {
+    .class-board-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .spreadsheet-table {
+        font-size: 0.75rem;
+    }
+    
+    .spreadsheet-table th,
+    .spreadsheet-table td {
+        padding: 0.5rem;
+    }
+}
