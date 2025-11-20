@@ -2672,7 +2672,7 @@ const DashboardNav = {
     try {
       const modal = document.createElement('div');
       console.log('[MODAL] Created modal div');
-      modal.className = 'modal active';
+      modal.className = 'modal-overlay';
       modal.innerHTML = `
         <div class="modal-content" style="max-width: 500px;">
           <h3>Create New Classroom</h3>
