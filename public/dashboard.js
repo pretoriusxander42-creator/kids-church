@@ -203,21 +203,18 @@ const DashboardNav = {
       </div>
     `;
 
-    // Attach event listener directly to the button after DOM update
-    const self = this; // Save context
-    setTimeout(() => {
-      const createBtn = document.getElementById('createClassBtn');
-      if (createBtn) {
-        console.log('Create button found, attaching listener');
-        createBtn.addEventListener('click', (e) => {
-          console.log('Button clicked!');
-          e.preventDefault();
-          self.showCreateClassModal();
-        });
-      } else {
-        console.error('Create button not found!');
+    // Use event delegation on the content container
+    const self = this;
+    content.addEventListener('click', function(e) {
+      if (e.target && e.target.id === 'createClassBtn') {
+        console.log('Create button clicked via delegation!');
+        e.preventDefault();
+        e.stopPropagation();
+        self.showCreateClassModal();
       }
-    }, 0);
+    });
+
+    console.log('Event delegation set up for create class button');
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
