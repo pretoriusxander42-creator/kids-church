@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Create Class Button</title>
+    <style>
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Create Class Button</h1>
+    
+    <div id="testContainer"></div>
+    
+    <script>
+        // Simulate DashboardNav
+        const DashboardNav = {
+            showCreateClassModal() {
+                alert('Modal should open! Function is called.');
+                console.log('showCreateClassModal called');
+            }
+        };
+        
+        window.DashboardNav = DashboardNav;
+        
+        // Simulate loadClassroomSelection
+        function loadContent() {
+            const content = document.getElementById('testContainer');
+            content.innerHTML = `
+                <div class="classrooms-section">
+                    <div class="section-header">
+                        <div>
+                            <h2>Select a Classroom</h2>
+                            <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
+                        </div>
+                        <button class="btn-primary" id="createClassBtn" data-action="create-class">+ Create New Class</button>
+                    </div>
+                </div>
+            `;
+            
+            // Method 1: Direct event listener with setTimeout
+            setTimeout(() => {
+                const createBtn = document.getElementById('createClassBtn');
+                if (createBtn) {
+                    console.log('Create button found, attaching listener');
+                    createBtn.addEventListener('click', (e) => {
+                        console.log('Button clicked!');
+                        e.preventDefault();
+                        DashboardNav.showCreateClassModal();
+                    });
+                } else {
+                    console.error('Create button not found!');
+                }
+            }, 0);
+        }
+        
+        // Load on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadContent();
+        });
+    </script>
+</body>
+</html>

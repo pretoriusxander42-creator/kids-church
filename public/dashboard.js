@@ -203,18 +203,20 @@ const DashboardNav = {
       </div>
     `;
 
-    // Attach event listener directly to the button
-    const createBtn = document.getElementById('createClassBtn');
-    if (createBtn) {
-      console.log('Create button found, attaching listener');
-      createBtn.addEventListener('click', (e) => {
-        console.log('Button clicked!');
-        e.preventDefault();
-        this.showCreateClassModal();
-      });
-    } else {
-      console.error('Create button not found!');
-    }
+    // Attach event listener directly to the button after DOM update
+    setTimeout(() => {
+      const createBtn = document.getElementById('createClassBtn');
+      if (createBtn) {
+        console.log('Create button found, attaching listener');
+        createBtn.addEventListener('click', (e) => {
+          console.log('Button clicked!');
+          e.preventDefault();
+          this.showCreateClassModal();
+        });
+      } else {
+        console.error('Create button not found!');
+      }
+    }, 0);
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
