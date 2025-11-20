@@ -201,6 +201,102 @@ router.get('/classes/capacity', requireMinRole('teacher'), async (req, res) => {
   }
 });
 
+// GET total membership per classroom (from class_assignments)
+router.get('/classes/membership', async (req, res) => {
+  try {
+    const { data: classes, error: classError } = await supabase
+      .from('classes')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (classError) {
+      return res.status(500).json({ error: classError.message });
+    }
+
+    const membershipData = await Promise.all(
+      classes.map(async (classItem: any) => {
+        // Count active assignments for this class
+        const { count } = await supabase
+          .from('class_assignments')
+          .select('*', { count: 'exact', head: true })
+          .eq('class_id', classItem.id)
+          .eq('is_active', true);
+
+        return {
+          id: classItem.id,
+          name: classItem.name,
+          type: classItem.type,
+          memberCount: count || 0,
+        };
+      })
+    );
+
+    // Calculate total
+    const totalMembers = membershipData.reduce((sum, item) => sum + item.memberCount, 0);
+
+    return res.json({ 
+      classes: membershipData,
+      totalMembers
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// GET check-ins for a specific date
+router.get('/checkins/by-date', async (req, res) => {
+  try {
+    const { date } = req.query;
+    
+    // Default to today if no date provided
+    const targetDate = date ? new Date(date as string) : new Date();
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    // Get total check-ins for the date
+    const { count: totalCheckIns } = await supabase
+      .from('check_ins')
+      .select('*', { count: 'exact', head: true })
+      .gte('check_in_time', `${dateStr}T00:00:00`)
+      .lte('check_in_time', `${dateStr}T23:59:59`);
+
+    // Get check-ins by class for the date
+    const { data: classes, error: classError } = await supabase
+      .from('classes')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (classError) {
+      return res.status(500).json({ error: classError.message });
+    }
+
+    const byClass = await Promise.all(
+      classes.map(async (classItem: any) => {
+        const { count } = await supabase
+          .from('check_ins')
+          .select('*', { count: 'exact', head: true })
+          .eq('class_attended', classItem.id)
+          .gte('check_in_time', `${dateStr}T00:00:00`)
+          .lte('check_in_time', `${dateStr}T23:59:59`);
+
+        return {
+          id: classItem.id,
+          name: classItem.name,
+          type: classItem.type,
+          checkInCount: count || 0,
+        };
+      })
+    );
+
+    return res.json({
+      date: dateStr,
+      totalCheckIns: totalCheckIns || 0,
+      byClass
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
  
 // CSV attendance export (admin only)

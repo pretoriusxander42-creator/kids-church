@@ -108,10 +108,13 @@ const DashboardNav = {
   },
 
   loadOverview(content) {
+    // Get today's date for the date picker default
+    const today = new Date().toISOString().split('T')[0];
+    
     content.innerHTML = `
       <div class="overview-section">
         <div class="section-header">
-          <h2>Today's Activity</h2>
+          <h2>Overview</h2>
           <div style="display: flex; gap: 0.5rem;">
             <button class="btn-secondary" id="addChildBtn">+ Add Child</button>
             <button class="btn-secondary" id="addParentBtn">+ Add Parent</button>
@@ -120,12 +123,18 @@ const DashboardNav = {
         </div>
         <div class="activity-cards">
           <div class="activity-card">
-            <h3>Currently Checked In</h3>
-            <p class="big-number" id="currentlyCheckedIn">Loading...</p>
+            <h3>Total Child Membership</h3>
+            <p class="big-number" id="totalMembership">Loading...</p>
+            <div id="membershipByClass" style="margin-top: 1rem; font-size: 0.9rem;"></div>
           </div>
           <div class="activity-card">
-            <h3>Total Check-ins Today</h3>
-            <p class="big-number" id="todayTotal">Loading...</p>
+            <h3>Check-ins for Selected Sunday</h3>
+            <div style="margin-bottom: 1rem;">
+              <input type="date" id="sundayDatePicker" value="${today}" 
+                     style="padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 1rem;">
+            </div>
+            <p class="big-number" id="sundayCheckIns">Loading...</p>
+            <div id="checkInsByClass" style="margin-top: 1rem; font-size: 0.9rem;"></div>
           </div>
         </div>
         <div class="recent-activity">
@@ -151,9 +160,101 @@ const DashboardNav = {
       if (manageChildrenBtn) {
         manageChildrenBtn.addEventListener('click', () => this.showManageChildrenModal());
       }
+
+      // Date picker event listener
+      const datePicker = document.getElementById('sundayDatePicker');
+      if (datePicker) {
+        datePicker.addEventListener('change', (e) => {
+          this.loadCheckInsForDate(e.target.value);
+          this.loadRecentCheckIns(); // Also refresh the recent check-ins list
+        });
+      }
+
+      // Load initial data
+      this.loadMembershipStats();
+      this.loadCheckInsForDate(today);
     }, 0);
     
     this.loadRecentCheckIns();
+  },
+
+  async loadMembershipStats() {
+    const totalElement = document.getElementById('totalMembership');
+    const byClassElement = document.getElementById('membershipByClass');
+    
+    if (!totalElement) return;
+
+    try {
+      const result = await Utils.apiRequest('/api/statistics/classes/membership');
+      
+      if (result.success) {
+        const { totalMembers, classes } = result.data;
+        
+        // Update total
+        totalElement.textContent = totalMembers;
+        
+        // Update breakdown by class
+        if (byClassElement && classes && classes.length > 0) {
+          byClassElement.innerHTML = classes
+            .filter(c => c.memberCount > 0)
+            .map(c => `
+              <div style="display: flex; justify-content: space-between; padding: 0.25rem 0;">
+                <span style="color: #6b7280;">${c.name}:</span>
+                <span style="font-weight: 600;">${c.memberCount}</span>
+              </div>
+            `).join('');
+        }
+      } else {
+        totalElement.textContent = 'Error';
+        console.error('Failed to load membership stats:', result.error);
+      }
+    } catch (error) {
+      totalElement.textContent = 'Error';
+      console.error('Failed to load membership stats:', error);
+    }
+  },
+
+  async loadCheckInsForDate(date) {
+    const totalElement = document.getElementById('sundayCheckIns');
+    const byClassElement = document.getElementById('checkInsByClass');
+    
+    if (!totalElement) return;
+
+    totalElement.textContent = 'Loading...';
+    if (byClassElement) byClassElement.innerHTML = '';
+
+    try {
+      const result = await Utils.apiRequest(`/api/statistics/checkins/by-date?date=${date}`);
+      
+      if (result.success) {
+        const { totalCheckIns, byClass } = result.data;
+        
+        // Update total
+        totalElement.textContent = totalCheckIns;
+        
+        // Update breakdown by class
+        if (byClassElement && byClass && byClass.length > 0) {
+          byClassElement.innerHTML = byClass
+            .filter(c => c.checkInCount > 0)
+            .map(c => `
+              <div style="display: flex; justify-content: space-between; padding: 0.25rem 0;">
+                <span style="color: #6b7280;">${c.name}:</span>
+                <span style="font-weight: 600;">${c.checkInCount}</span>
+              </div>
+            `).join('');
+          
+          if (byClass.every(c => c.checkInCount === 0)) {
+            byClassElement.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 0.5rem;">No check-ins for this date</div>';
+          }
+        }
+      } else {
+        totalElement.textContent = 'Error';
+        console.error('Failed to load check-ins:', result.error);
+      }
+    } catch (error) {
+      totalElement.textContent = 'Error';
+      console.error('Failed to load check-ins:', error);
+    }
   },
 
   async loadRecentCheckIns() {
@@ -162,14 +263,17 @@ const DashboardNav = {
 
     Utils.showLoading(container, 'Loading recent check-ins...');
 
-    const today = new Date().toISOString().split('T')[0];
-    const result = await Utils.apiRequest(`/api/checkins?date=${today}`);
+    // Use the date from the date picker if available, otherwise use today
+    const datePicker = document.getElementById('sundayDatePicker');
+    const selectedDate = datePicker ? datePicker.value : new Date().toISOString().split('T')[0];
+    
+    const result = await Utils.apiRequest(`/api/checkins?date=${selectedDate}`);
 
     if (result.success) {
       const checkIns = result.data;
       
       if (checkIns.length === 0) {
-        Utils.showEmpty(container, 'No check-ins yet today');
+        Utils.showEmpty(container, 'No check-ins for this date');
         return;
       }
 
