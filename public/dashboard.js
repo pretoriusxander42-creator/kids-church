@@ -18,6 +18,7 @@ const DashboardNav = {
         <button class="nav-tab" data-view="classrooms">Select Classroom</button>
         <button class="nav-tab" data-view="ftv">FTV Board</button>
         <button class="nav-tab" data-view="special-needs">Special Needs</button>
+        <button class="nav-tab" data-view="manage-children">Manage Children</button>
         <button class="nav-tab" data-view="reports">Reports</button>
       </div>
       <div id="dashboardContent" class="dashboard-content"></div>
@@ -74,6 +75,9 @@ const DashboardNav = {
         break;
       case 'special-needs':
         this.loadSpecialNeedsBoard(content);
+        break;
+      case 'manage-children':
+        this.loadChildManagement(content);
         break;
       case 'reports':
         this.loadReports(content);
@@ -187,14 +191,23 @@ const DashboardNav = {
     content.innerHTML = `
       <div class="classrooms-section">
         <div class="section-header">
-          <h2>🏫 Select a Classroom</h2>
-          <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
+          <div>
+            <h2>🏫 Select a Classroom</h2>
+            <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
+          </div>
+          <button class="btn-primary" id="createClassBtn">+ Create New Class</button>
         </div>
         <div id="classroomsList" class="classrooms-grid">
           <p style="text-align: center; color: #6b7280;">Loading classrooms...</p>
         </div>
       </div>
     `;
+
+    // Add create class button event
+    const createBtn = document.getElementById('createClassBtn');
+    if (createBtn) {
+      createBtn.addEventListener('click', () => this.showCreateClassModal());
+    }
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
@@ -203,7 +216,12 @@ const DashboardNav = {
       const classes = result.data || [];
       
       if (classes.length === 0) {
-        Utils.showEmpty(container, 'No classrooms available. Please create a classroom first.');
+        container.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
+            <p style="color: #6b7280; margin-bottom: 1rem;">No classrooms available.</p>
+            <button class="btn-primary" onclick="DashboardNav.showCreateClassModal()">Create Your First Classroom</button>
+          </div>
+        `;
         return;
       }
 
@@ -218,6 +236,7 @@ const DashboardNav = {
           ${cls.room_location ? `<p class="classroom-location">📍 ${cls.room_location}</p>` : ''}
           <div class="classroom-actions">
             <button class="btn-primary classroom-select-btn">Select Room</button>
+            <button class="btn-danger classroom-delete-btn" data-class-id="${cls.id}" data-class-name="${cls.name}">🗑️</button>
           </div>
         </div>
       `).join('');
@@ -230,6 +249,14 @@ const DashboardNav = {
           const className = card.dataset.className;
           const classType = card.dataset.classType;
           this.showClassroomOptions(classId, className, classType);
+        });
+
+        const deleteBtn = card.querySelector('.classroom-delete-btn');
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const classId = deleteBtn.dataset.classId;
+          const className = deleteBtn.dataset.className;
+          this.deleteClass(classId, className);
         });
       });
     } else {
@@ -1567,38 +1594,46 @@ const DashboardNav = {
   },
 
   async viewClassBoard(classId, className) {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 900px;">
-        <div class="modal-header">
-          <h2>📋 ${className} - Children Currently Checked In</h2>
-          <button class="close-btn">&times;</button>
+    // Switch to full-page view
+    const content = document.getElementById('dashboardContent');
+    if (!content) return;
+
+    content.innerHTML = `
+      <div class="class-board-view">
+        <div class="class-board-header">
+          <div class="header-left">
+            <button class="btn-secondary" id="backFromClassBoard">← Back</button>
+            <h2>📋 ${className} - Class Board</h2>
+          </div>
+          <div class="header-right">
+            <div class="board-stats" id="boardStats">
+              <span class="stat-badge">Loading...</span>
+            </div>
+            <button class="btn-secondary" id="exportToCSV">📊 Export CSV</button>
+            <button class="btn-secondary" id="printClassBoard">🖨️ Print</button>
+          </div>
         </div>
-        <div id="classBoardContent" style="padding: 20px;">
-          <p style="text-align: center; color: #6b7280;">Loading children...</p>
+        
+        <div class="class-board-table-container">
+          <p style="text-align: center; color: #6b7280; padding: 2rem;">Loading children...</p>
         </div>
       </div>
     `;
-    document.body.appendChild(modal);
 
-    // Attach close button event listener
-    const closeBtn = modal.querySelector('.close-btn');
-    closeBtn.addEventListener('click', () => modal.remove());
-    
-    // Close on backdrop click
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        modal.remove();
-      }
-    });
+    // Back button
+    setTimeout(() => {
+      document.getElementById('backFromClassBoard')?.addEventListener('click', () => {
+        this.switchView('classrooms');
+      });
+    }, 0);
 
     // Load children checked into this class
     try {
       const today = new Date().toISOString().split('T')[0];
       const result = await Utils.apiRequest(`/api/checkins?date=${today}`);
 
-      const contentDiv = modal.querySelector('#classBoardContent');
+      const container = content.querySelector('.class-board-table-container');
+      const statsDiv = document.getElementById('boardStats');
 
       if (result.success) {
         const checkIns = result.data || [];
@@ -1607,89 +1642,277 @@ const DashboardNav = {
           ci.class_attended === classId && !ci.check_out_time
         );
 
+        // Update stats
+        if (statsDiv) {
+          statsDiv.innerHTML = `
+            <span class="stat-badge stat-primary">${classChildren.length} Checked In</span>
+            <span class="stat-badge">Today: ${new Date().toLocaleDateString()}</span>
+          `;
+        }
+
         if (classChildren.length === 0) {
-          contentDiv.innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-              <p style="font-size: 1.2rem; color: #6b7280;">No children currently checked into this class</p>
+          container.innerHTML = `
+            <div style="text-align: center; padding: 4rem;">
+              <p style="font-size: 1.2rem; color: #6b7280;">No children currently checked into this classroom</p>
               <p style="margin-top: 10px; font-size: 0.875rem; color: #9ca3af;">
-                Children will appear here once they are checked in and assigned to this class.
+                Children will appear here once they are checked in and assigned to this classroom.
               </p>
             </div>
           `;
           return;
         }
 
-        contentDiv.innerHTML = `
-          <div style="margin-bottom: 20px;">
-            <p style="font-size: 1.1rem; font-weight: 600; color: #1e40af;">
-              👥 ${classChildren.length} ${classChildren.length === 1 ? 'child' : 'children'} checked in
-            </p>
-          </div>
-          <div style="display: grid; gap: 15px;">
-            ${classChildren.map(ci => {
-              const child = ci.children;
-              return `
-                <div style="background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 8px; padding: 15px;">
-                  <div style="display: flex; justify-content: space-between; align-items: start;">
-                    <div style="flex: 1;">
-                      <h3 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 1.1rem;">
-                        ${child.first_name} ${child.last_name}
-                      </h3>
-                      <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 15px; font-size: 0.9rem;">
-                        <span style="color: #6b7280; font-weight: 500;">Age:</span>
-                        <span>${child.date_of_birth ? this.calculateAge(child.date_of_birth) + ' years old' : 'N/A'}</span>
-                        
-                        <span style="color: #6b7280; font-weight: 500;">DOB:</span>
-                        <span>${child.date_of_birth || 'N/A'}</span>
-                        
-                        <span style="color: #6b7280; font-weight: 500;">Checked In:</span>
-                        <span>${Utils.formatTime(ci.check_in_time)}</span>
-                        
-                        <span style="color: #6b7280; font-weight: 500;">Security Code:</span>
-                        <span style="font-weight: 700; color: #2563eb; font-size: 1.1rem;">${ci.security_code}</span>
-                        
-                        ${child.allergies ? `
-                          <span style="color: #dc2626; font-weight: 500;">⚠️ Allergies:</span>
-                          <span style="color: #dc2626; font-weight: 600;">${child.allergies}</span>
-                        ` : ''}
-                        
-                        ${child.medical_notes ? `
-                          <span style="color: #ea580c; font-weight: 500;">🏥 Medical:</span>
-                          <span style="color: #ea580c;">${child.medical_notes}</span>
-                        ` : ''}
-                        
-                        ${child.emergency_contact_name ? `
-                          <span style="color: #6b7280; font-weight: 500;">Emergency Contact:</span>
-                          <span>${child.emergency_contact_name} - ${child.emergency_contact_phone || 'No phone'}</span>
-                        ` : ''}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
+        // Create spreadsheet-style table
+        container.innerHTML = `
+          <div class="spreadsheet-table">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 50px;">#</th>
+                  <th style="width: 180px;">Child Name</th>
+                  <th style="width: 80px;">Age</th>
+                  <th style="width: 120px;">Date of Birth</th>
+                  <th style="width: 120px;">Check-in Time</th>
+                  <th style="width: 120px;">Security Code</th>
+                  <th style="width: 180px;">Parent/Guardian</th>
+                  <th style="width: 150px;">Phone</th>
+                  <th style="width: 200px;">Allergies</th>
+                  <th style="width: 200px;">Medical Notes</th>
+                  <th style="width: 150px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${classChildren.map((ci, index) => {
+                  const child = ci.children;
+                  const parent = ci.parents;
+                  const age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+                  
+                  return `
+                    <tr data-checkin-id="${ci.id}" data-child-id="${child.id}">
+                      <td class="row-number">${index + 1}</td>
+                      <td class="child-name">
+                        <strong>${child.first_name} ${child.last_name}</strong>
+                        ${child.special_needs ? '<span class="badge badge-special">Special Needs</span>' : ''}
+                      </td>
+                      <td>${age}</td>
+                      <td>${child.date_of_birth || 'N/A'}</td>
+                      <td>${Utils.formatTime(ci.check_in_time)}</td>
+                      <td class="security-code">${ci.security_code}</td>
+                      <td>${parent ? `${parent.first_name} ${parent.last_name}` : 'N/A'}</td>
+                      <td>${parent?.phone_number || 'N/A'}</td>
+                      <td class="allergies-cell ${child.allergies ? 'has-allergies' : ''}">
+                        ${child.allergies || '-'}
+                      </td>
+                      <td class="medical-cell ${child.medical_notes ? 'has-medical' : ''}">
+                        ${child.medical_notes || '-'}
+                      </td>
+                      <td class="actions-cell">
+                        <button class="action-btn checkout-btn" data-checkin-id="${ci.id}" data-code="${ci.security_code}" title="Check Out">
+                          ✓
+                        </button>
+                        <button class="action-btn print-btn" data-checkin-data='${JSON.stringify({ child, code: ci.security_code })}' title="Print Tag">
+                          🖨️
+                        </button>
+                        <button class="action-btn info-btn" data-child='${JSON.stringify(child).replace(/'/g, "&#39;")}' title="View Details">
+                          ℹ️
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
           </div>
         `;
+
+        // Attach event listeners to action buttons
+        this.attachClassBoardActions(classChildren);
+
+        // Export CSV functionality
+        document.getElementById('exportToCSV')?.addEventListener('click', () => {
+          this.exportClassBoardToCSV(classChildren, className);
+        });
+
+        // Print functionality
+        document.getElementById('printClassBoard')?.addEventListener('click', () => {
+          this.printClassBoard(className);
+        });
       } else {
-        contentDiv.innerHTML = `
-          <div style="text-align: center; padding: 40px; color: #ef4444;">
-            <p>❌ Failed to load children</p>
-            <p style="font-size: 0.875rem; margin-top: 10px;">${result.message || 'Unknown error'}</p>
+        container.innerHTML = `
+          <div style="text-align: center; padding: 4rem;">
+            <p style="font-size: 1.2rem; color: #ef4444;">Failed to load children</p>
+            <p style="margin-top: 10px; font-size: 0.875rem; color: #9ca3af;">${result.error || 'Unknown error'}</p>
           </div>
         `;
       }
     } catch (error) {
-      console.error('View class board error:', error);
-      const contentDiv = modal.querySelector('#classBoardContent');
-      if (contentDiv) {
-        contentDiv.innerHTML = `
-          <div style="text-align: center; padding: 40px; color: #ef4444;">
-            <p>❌ An error occurred</p>
-            <p style="font-size: 0.875rem; margin-top: 10px;">${error.message}</p>
-          </div>
-        `;
-      }
+      console.error('Error loading class board:', error);
+      Utils.showToast('Failed to load class board', 'error');
     }
+  },
+
+  attachClassBoardActions(classChildren) {
+    // Checkout buttons
+    document.querySelectorAll('.checkout-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const checkinId = btn.dataset.checkinId;
+        const securityCode = btn.dataset.code;
+        await this.quickCheckout(checkinId, securityCode);
+      });
+    });
+
+    // Print buttons
+    document.querySelectorAll('.print-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const data = JSON.parse(btn.dataset.checkinData);
+        this.showSecurityCodeModal({ security_code: data.code }, data.child);
+      });
+    });
+
+    // Info buttons
+    document.querySelectorAll('.info-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const child = JSON.parse(btn.dataset.child);
+        this.showChildDetailsModal(child);
+      });
+    });
+  },
+
+  async quickCheckout(checkinId, securityCode) {
+    if (!confirm('Are you sure you want to check out this child?')) {
+      return;
+    }
+
+    const result = await Utils.apiRequest(`/api/checkins/${checkinId}/checkout`, {
+      method: 'POST',
+      body: JSON.stringify({ security_code: securityCode })
+    });
+
+    if (result.success) {
+      Utils.showToast('Child checked out successfully!', 'success');
+      // Remove the row from the table
+      const row = document.querySelector(`tr[data-checkin-id="${checkinId}"]`);
+      if (row) {
+        row.style.opacity = '0';
+        row.style.transition = 'opacity 0.3s';
+        setTimeout(() => row.remove(), 300);
+        
+        // Update count
+        const statsDiv = document.getElementById('boardStats');
+        if (statsDiv) {
+          const currentRows = document.querySelectorAll('.spreadsheet-table tbody tr').length - 1;
+          statsDiv.querySelector('.stat-primary').textContent = `${currentRows} Checked In`;
+        }
+      }
+    } else {
+      Utils.showToast(`Checkout failed: ${result.error}`, 'error');
+    }
+  },
+
+  showChildDetailsModal(child) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>👶 ${child.first_name} ${child.last_name}</h2>
+          <button class="close-btn">&times;</button>
+        </div>
+        <div class="child-details">
+          <div class="detail-row">
+            <span class="detail-label">Full Name:</span>
+            <span class="detail-value">${child.first_name} ${child.last_name}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Date of Birth:</span>
+            <span class="detail-value">${child.date_of_birth || 'N/A'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Age:</span>
+            <span class="detail-value">${child.date_of_birth ? this.calculateAge(child.date_of_birth) + ' years old' : 'N/A'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Gender:</span>
+            <span class="detail-value">${child.gender || 'Not specified'}</span>
+          </div>
+          ${child.allergies ? `
+            <div class="detail-row alert-row">
+              <span class="detail-label">⚠️ Allergies:</span>
+              <span class="detail-value">${child.allergies}</span>
+            </div>
+          ` : ''}
+          ${child.medical_notes ? `
+            <div class="detail-row alert-row">
+              <span class="detail-label">🏥 Medical Notes:</span>
+              <span class="detail-value">${child.medical_notes}</span>
+            </div>
+          ` : ''}
+          ${child.special_needs ? `
+            <div class="detail-row alert-row">
+              <span class="detail-label">💙 Special Needs:</span>
+              <span class="detail-value">${child.special_needs_details || 'Yes'}</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    
+    modal.querySelector('.close-btn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  },
+
+  exportClassBoardToCSV(classChildren, className) {
+    const headers = ['#', 'Child Name', 'Age', 'Date of Birth', 'Check-in Time', 'Security Code', 'Parent/Guardian', 'Phone', 'Allergies', 'Medical Notes', 'Special Needs'];
+    
+    const rows = classChildren.map((ci, index) => {
+      const child = ci.children;
+      const parent = ci.parents;
+      const age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+      
+      return [
+        index + 1,
+        `${child.first_name} ${child.last_name}`,
+        age,
+        child.date_of_birth || 'N/A',
+        Utils.formatTime(ci.check_in_time),
+        ci.security_code,
+        parent ? `${parent.first_name} ${parent.last_name}` : 'N/A',
+        parent?.phone_number || 'N/A',
+        child.allergies || '-',
+        child.medical_notes || '-',
+        child.special_needs ? 'Yes' : 'No'
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${className.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    Utils.showToast('Class board exported to CSV!', 'success');
+  },
+
+  printClassBoard(className) {
+    window.print();
   },
 
   calculateAge(dateOfBirth) {
@@ -2391,6 +2614,354 @@ const DashboardNav = {
       clearInterval(this.refreshInterval);
       this.refreshInterval = null;
     }
+  },
+
+  // Create Class Modal
+  showCreateClassModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px;">
+        <h3>Create New Classroom</h3>
+        <form id="createClassForm" class="form-section">
+          <div class="form-group">
+            <label>Classroom Name *</label>
+            <input type="text" id="className" required placeholder="e.g., Toddlers Room A">
+          </div>
+          
+          <div class="form-group">
+            <label>Type *</label>
+            <select id="classType" required>
+              <option value="">Select type...</option>
+              <option value="regular">Regular Class</option>
+              <option value="ftv">First Time Visitors</option>
+              <option value="special">Special Needs</option>
+              <option value="event">Special Event</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Age Range</label>
+            <input type="text" id="classAgeRange" placeholder="e.g., 2-4 years">
+          </div>
+          
+          <div class="form-group">
+            <label>Maximum Capacity</label>
+            <input type="number" id="classCapacity" min="1" placeholder="e.g., 20">
+          </div>
+          
+          <div class="form-group">
+            <label>Room Number</label>
+            <input type="text" id="classRoomNumber" placeholder="e.g., 101">
+          </div>
+          
+          <div class="form-group">
+            <label>Room Location</label>
+            <input type="text" id="classRoomLocation" placeholder="e.g., Building A, First Floor">
+          </div>
+          
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Create Classroom</button>
+            <button type="button" class="btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const form = document.getElementById('createClassForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.createClass(modal);
+    });
+  },
+
+  async createClass(modal) {
+    const form = document.getElementById('createClassForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    const classData = {
+      name: document.getElementById('className').value,
+      type: document.getElementById('classType').value,
+      age_range: document.getElementById('classAgeRange').value || null,
+      capacity: parseInt(document.getElementById('classCapacity').value) || null,
+      room_number: document.getElementById('classRoomNumber').value || null,
+      room_location: document.getElementById('classRoomLocation').value || null,
+      is_active: true
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating...';
+
+    const result = await Utils.apiRequest('/api/classes', {
+      method: 'POST',
+      body: JSON.stringify(classData)
+    });
+
+    if (result.success) {
+      Utils.showToast('Classroom created successfully!', 'success');
+      modal.remove();
+      // Reload classroom list
+      const content = document.getElementById('dashboardContent');
+      if (content) {
+        await this.loadClassroomSelection(content);
+      }
+    } else {
+      Utils.showToast(`Failed to create classroom: ${result.error}`, 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Classroom';
+    }
+  },
+
+  async deleteClass(classId, className) {
+    if (!confirm(`Are you sure you want to delete "${className}"?\n\nThis action cannot be undone. All check-in history for this class will be preserved.`)) {
+      return;
+    }
+
+    const result = await Utils.apiRequest(`/api/classes/${classId}`, {
+      method: 'DELETE'
+    });
+
+    if (result.success) {
+      Utils.showToast('Classroom deleted successfully!', 'success');
+      // Reload classroom list
+      const content = document.getElementById('dashboardContent');
+      if (content) {
+        await this.loadClassroomSelection(content);
+      }
+    } else {
+      Utils.showToast(`Failed to delete classroom: ${result.error || result.message}`, 'error');
+    }
+  },
+
+  // Child Management View
+  async loadChildManagement(content) {
+    content.innerHTML = `
+      <div class="child-management-section">
+        <div class="section-header">
+          <h2>👶 Manage Children</h2>
+          <div class="filter-actions">
+            <label style="display: flex; align-items: center; gap: 0.5rem; margin-right: 1rem;">
+              <input type="checkbox" id="showArchived">
+              <span>Show Archived</span>
+            </label>
+            <select id="inactivityFilter" class="form-control" style="width: auto;">
+              <option value="">All Children</option>
+              <option value="30">Inactive >30 days</option>
+              <option value="60">Inactive >60 days</option>
+              <option value="90">Inactive >90 days</option>
+            </select>
+            <input type="text" id="childSearchBox" placeholder="Search children..." style="width: 250px;" class="form-control">
+          </div>
+        </div>
+        
+        <div id="childManagementTable" class="management-table-container">
+          <p style="text-align: center; color: #6b7280;">Loading children...</p>
+        </div>
+      </div>
+    `;
+
+    // Setup filters
+    const searchBox = document.getElementById('childSearchBox');
+    const archivedCheckbox = document.getElementById('showArchived');
+    const inactivityFilter = document.getElementById('inactivityFilter');
+
+    searchBox.addEventListener('input', () => this.filterChildrenTable());
+    archivedCheckbox.addEventListener('change', () => this.loadChildrenTable());
+    inactivityFilter.addEventListener('change', () => this.loadChildrenTable());
+
+    await this.loadChildrenTable();
+  },
+
+  async loadChildrenTable() {
+    const container = document.getElementById('childManagementTable');
+    const showArchived = document.getElementById('showArchived')?.checked;
+    const inactivityDays = document.getElementById('inactivityFilter')?.value;
+    
+    container.innerHTML = '<p style="text-align: center; color: #6b7280;">Loading children...</p>';
+
+    let result;
+    if (inactivityDays) {
+      result = await Utils.apiRequest(`/api/children/inactive/${inactivityDays}`);
+    } else {
+      result = await Utils.apiRequest(`/api/children?limit=1000&include_archived=${showArchived}`);
+    }
+
+    if (!result.success) {
+      Utils.showError(container, 'Failed to load children');
+      return;
+    }
+
+    const children = result.data || [];
+    
+    if (children.length === 0) {
+      container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No children found.</p>';
+      return;
+    }
+
+    const now = new Date();
+    
+    container.innerHTML = `
+      <table class="spreadsheet-table" id="childrenTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Date of Birth</th>
+            <th>Age</th>
+            <th>Last Check-in</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${children.map((child, idx) => {
+            const dob = new Date(child.date_of_birth);
+            const age = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
+            const lastCheckin = child.last_check_in ? new Date(child.last_check_in) : null;
+            const daysSinceCheckin = lastCheckin ? Math.floor((now - lastCheckin) / (24 * 60 * 60 * 1000)) : null;
+            
+            let statusBadge = '';
+            if (child.is_archived) {
+              statusBadge = '<span class="badge badge-archived">Archived</span>';
+            } else if (!lastCheckin) {
+              statusBadge = '<span class="badge badge-never">Never Checked In</span>';
+            } else if (daysSinceCheckin > 90) {
+              statusBadge = '<span class="badge badge-danger">Inactive 90+ days</span>';
+            } else if (daysSinceCheckin > 60) {
+              statusBadge = '<span class="badge badge-warning">Inactive 60+ days</span>';
+            } else if (daysSinceCheckin > 30) {
+              statusBadge = '<span class="badge badge-info">Inactive 30+ days</span>';
+            } else {
+              statusBadge = '<span class="badge badge-success">Active</span>';
+            }
+            
+            const lastCheckinText = lastCheckin 
+              ? `${lastCheckin.toLocaleDateString()} (${daysSinceCheckin} days ago)`
+              : 'Never';
+            
+            return `
+              <tr data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}">
+                <td class="row-number">${idx + 1}</td>
+                <td class="child-name"><strong>${child.first_name} ${child.last_name}</strong></td>
+                <td>${dob.toLocaleDateString()}</td>
+                <td>${age} years</td>
+                <td class="${!lastCheckin ? 'text-warning' : daysSinceCheckin > 60 ? 'text-danger' : ''}">${lastCheckinText}</td>
+                <td>${statusBadge}</td>
+                <td class="actions-cell">
+                  ${child.is_archived 
+                    ? `<button class="action-btn unarchive-btn" title="Unarchive" data-id="${child.id}">↩️</button>`
+                    : `<button class="action-btn archive-btn" title="Archive" data-id="${child.id}">📦</button>`
+                  }
+                  <button class="action-btn info-btn" title="View Details" data-id="${child.id}">ℹ️</button>
+                  <button class="action-btn delete-btn" title="Delete Permanently" data-id="${child.id}">🗑️</button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+
+    this.attachChildManagementActions();
+  },
+
+  attachChildManagementActions() {
+    const archiveBtns = document.querySelectorAll('.archive-btn');
+    const unarchiveBtns = document.querySelectorAll('.unarchive-btn');
+    const deleteBtns = document.querySelectorAll('.delete-btn');
+    const infoBtns = document.querySelectorAll('.info-btn');
+
+    archiveBtns.forEach(btn => {
+      btn.addEventListener('click', () => this.archiveChild(btn.dataset.id));
+    });
+
+    unarchiveBtns.forEach(btn => {
+      btn.addEventListener('click', () => this.unarchiveChild(btn.dataset.id));
+    });
+
+    deleteBtns.forEach(btn => {
+      btn.addEventListener('click', () => this.deleteChild(btn.dataset.id));
+    });
+
+    infoBtns.forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const result = await Utils.apiRequest(`/api/children/${btn.dataset.id}`);
+        if (result.success) {
+          this.showChildDetailsModal(result.data);
+        }
+      });
+    });
+  },
+
+  async archiveChild(childId) {
+    const row = document.querySelector(`tr[data-child-id="${childId}"]`);
+    const childName = row?.dataset.childName || 'this child';
+    
+    const reason = prompt(`Why are you archiving ${childName}?\n\n(e.g., moved away, switched churches, etc.)`);
+    if (reason === null) return; // User cancelled
+
+    const result = await Utils.apiRequest(`/api/children/${childId}/archive`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason || 'No reason provided' })
+    });
+
+    if (result.success) {
+      Utils.showToast('Child archived successfully!', 'success');
+      await this.loadChildrenTable();
+    } else {
+      Utils.showToast(`Failed to archive child: ${result.error}`, 'error');
+    }
+  },
+
+  async unarchiveChild(childId) {
+    const result = await Utils.apiRequest(`/api/children/${childId}/unarchive`, {
+      method: 'POST'
+    });
+
+    if (result.success) {
+      Utils.showToast('Child unarchived successfully!', 'success');
+      await this.loadChildrenTable();
+    } else {
+      Utils.showToast(`Failed to unarchive child: ${result.error}`, 'error');
+    }
+  },
+
+  async deleteChild(childId) {
+    const row = document.querySelector(`tr[data-child-id="${childId}"]`);
+    const childName = row?.dataset.childName || 'this child';
+    
+    if (!confirm(`⚠️ PERMANENT DELETE WARNING ⚠️\n\nAre you absolutely sure you want to permanently delete ${childName}?\n\nThis will:\n- Delete the child record\n- Delete ALL check-in history\n- Delete ALL parent relationships\n\nThis action CANNOT be undone!\n\nType "DELETE" in the prompt to confirm.`)) {
+      return;
+    }
+
+    const confirmation = prompt(`Type "DELETE" to confirm permanent deletion of ${childName}:`);
+    if (confirmation !== 'DELETE') {
+      Utils.showToast('Deletion cancelled', 'info');
+      return;
+    }
+
+    const result = await Utils.apiRequest(`/api/children/${childId}`, {
+      method: 'DELETE'
+    });
+
+    if (result.success) {
+      Utils.showToast('Child deleted permanently', 'success');
+      await this.loadChildrenTable();
+    } else {
+      Utils.showToast(`Failed to delete child: ${result.error}`, 'error');
+    }
+  },
+
+  filterChildrenTable() {
+    const searchTerm = document.getElementById('childSearchBox')?.value.toLowerCase() || '';
+    const rows = document.querySelectorAll('#childrenTable tbody tr');
+
+    rows.forEach(row => {
+      const name = row.querySelector('.child-name')?.textContent.toLowerCase() || '';
+      row.style.display = name.includes(searchTerm) ? '' : 'none';
+    });
   }
 };
 

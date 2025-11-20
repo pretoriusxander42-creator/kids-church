@@ -1560,3 +1560,155 @@ body {
         padding: 0.5rem;
     }
 }
+
+/* Class Management Styles */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.section-header h2 {
+    margin: 0;
+}
+
+.filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.classroom-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.classroom-actions .btn-danger {
+    width: 40px;
+    padding: 0.5rem;
+    font-size: 1rem;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Child Management Table */
+.child-management-section {
+    padding: 1rem;
+}
+
+.management-table-container {
+    background: var(--surface);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+.management-table-container .spreadsheet-table {
+    margin: 0;
+}
+
+.badge-archived {
+    background: #9ca3af;
+    color: white;
+}
+
+.badge-never {
+    background: #6b7280;
+    color: white;
+}
+
+.badge-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.badge-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.badge-info {
+    background: #3b82f6;
+    color: white;
+}
+
+.badge-success {
+    background: #10b981;
+    color: white;
+}
+
+.text-warning {
+    color: #f59e0b;
+    font-weight: 500;
+}
+
+.text-danger {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.archive-btn {
+    color: #8b5cf6;
+    border-color: #8b5cf6;
+}
+
+.archive-btn:hover {
+    background: #ede9fe;
+}
+
+.unarchive-btn {
+    color: #10b981;
+    border-color: #10b981;
+}
+
+.unarchive-btn:hover {
+    background: #d1fae5;
+}
+
+.delete-btn {
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+.delete-btn:hover {
+    background: #fee2e2;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .filter-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-actions input,
+    .filter-actions select {
+        width: 100% !important;
+    }
+}

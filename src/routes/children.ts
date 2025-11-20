@@ -14,6 +14,7 @@ const supabase = createClient(
 router.get('/search', async (req, res) => {
   const query = (req.query.query as string) || '';
   const limit = parseInt(req.query.limit as string) || 20;
+  const includeArchived = req.query.include_archived === 'true';
 
   if (query.length < 2) {
     return res.json({ data: [] });
@@ -21,12 +22,19 @@ router.get('/search', async (req, res) => {
 
   const searchPattern = `%${query}%`;
 
-  const { data, error } = await supabase
+  let searchQuery = supabase
     .from('children')
     .select('*')
     .or(`first_name.ilike.${searchPattern},last_name.ilike.${searchPattern}`)
     .limit(limit)
     .order('first_name', { ascending: true });
+
+  // By default, exclude archived children
+  if (!includeArchived) {
+    searchQuery = searchQuery.eq('is_archived', false);
+  }
+
+  const { data, error } = await searchQuery;
 
   if (error) {
     return res.status(500).json({ error: error.message });
@@ -40,12 +48,20 @@ router.get('/', async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 20;
   const offset = (page - 1) * limit;
+  const includeArchived = req.query.include_archived === 'true';
 
-  const { data, error, count } = await supabase
+  let query = supabase
     .from('children')
     .select('*', { count: 'exact' })
     .range(offset, offset + limit - 1)
     .order('created_at', { ascending: false });
+
+  // By default, exclude archived children
+  if (!includeArchived) {
+    query = query.eq('is_archived', false);
+  }
+
+  const { data, error, count } = await query;
 
   if (error) {
     return res.status(500).json({ error: error.message });
@@ -145,6 +161,77 @@ router.delete('/:id', async (req, res) => {
   }
 
   return res.json({ message: 'Child deleted successfully' });
+});
+
+// Archive child
+router.post('/:id/archive', validate(schemas.uuidParam, 'params'), async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  const { data, error } = await supabase
+    .from('children')
+    .update({ 
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archived_reason: reason || 'No reason provided',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ message: 'Child archived successfully', data });
+});
+
+// Unarchive child
+router.post('/:id/unarchive', validate(schemas.uuidParam, 'params'), async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from('children')
+    .update({ 
+      is_archived: false,
+      archived_at: null,
+      archived_reason: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ message: 'Child unarchived successfully', data });
+});
+
+// Get inactive children (no check-in for N days)
+router.get('/inactive/:days', async (req, res) => {
+  const days = parseInt(req.params.days) || 30;
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+
+  const { data, error } = await supabase
+    .from('children')
+    .select('*')
+    .eq('is_archived', false)
+    .or(`last_check_in.is.null,last_check_in.lt.${cutoffDate.toISOString()}`)
+    .order('last_check_in', { ascending: true, nullsFirst: true });
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.json({ 
+    data,
+    count: data.length,
+    days_threshold: days,
+  });
 });
 
 export default router;

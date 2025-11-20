@@ -62,13 +62,14 @@ router.get('/', async (req, res) => {
 // Check-in endpoint
 router.post('/', validate(schemas.createCheckin), async (req, res) => {
   const security_code = generateSecurityCode();
+  const checkInTime = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('check_ins')
     .insert([{ 
       ...req.body,
       security_code,
-      check_in_time: new Date().toISOString(),
+      check_in_time: checkInTime,
     }])
     .select(`
       *,
@@ -80,6 +81,15 @@ router.post('/', validate(schemas.createCheckin), async (req, res) => {
   if (error) {
     return res.status(500).json({ error: error.message });
   }
+
+  // Update child's last_check_in timestamp
+  await supabase
+    .from('children')
+    .update({ 
+      last_check_in: checkInTime,
+      updated_at: checkInTime,
+    })
+    .eq('id', req.body.child_id);
 
   // Log check-in
   await logCheckIn(req.body.checked_in_by || 'system', data.id, req.body.child_id);
