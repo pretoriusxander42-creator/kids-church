@@ -21,12 +21,11 @@ const classSchema = z.object({
   room_location: z.string().optional(),
   teacher_id: z.string().uuid().optional(),
   schedule: z.string().optional(),
-  is_active: z.boolean().optional(),
 });
 
 // GET all classes
 router.get('/', async (req, res) => {
-  const { type, is_active } = req.query;
+  const { type } = req.query;
   
   let query = supabase
     .from('classes')
@@ -35,10 +34,6 @@ router.get('/', async (req, res) => {
 
   if (type) {
     query = query.eq('type', type);
-  }
-
-  if (is_active !== undefined) {
-    query = query.eq('is_active', is_active === 'true');
   }
 
   const { data, error } = await query;
@@ -78,7 +73,7 @@ router.get('/:id/children', async (req, res) => {
       children (*)
     `)
     .eq('class_id', id)
-    .eq('is_active', true);
+    .eq('status', 'active');
 
   if (error) {
     return res.status(500).json({ error: error.message });

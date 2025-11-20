@@ -2748,8 +2748,7 @@ const DashboardNav = {
       age_range: document.getElementById('classAgeRange').value || null,
       capacity: parseInt(document.getElementById('classCapacity').value) || null,
       room_number: document.getElementById('classRoomNumber').value || null,
-      room_location: document.getElementById('classRoomLocation').value || null,
-      is_active: true
+      room_location: document.getElementById('classRoomLocation').value || null
     };
 
     submitBtn.disabled = true;
