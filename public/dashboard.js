@@ -195,13 +195,26 @@ const DashboardNav = {
             <h2>Select a Classroom</h2>
             <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
           </div>
-          <button class="btn-primary" onclick="DashboardNav.showCreateClassModal()">+ Create New Class</button>
+          <button class="btn-primary" id="createClassBtn" data-action="create-class">+ Create New Class</button>
         </div>
         <div id="classroomsList" class="classrooms-grid">
           <p style="text-align: center; color: #6b7280;">Loading classrooms...</p>
         </div>
       </div>
     `;
+
+    // Attach event listener directly to the button
+    const createBtn = document.getElementById('createClassBtn');
+    if (createBtn) {
+      console.log('Create button found, attaching listener');
+      createBtn.addEventListener('click', (e) => {
+        console.log('Button clicked!');
+        e.preventDefault();
+        this.showCreateClassModal();
+      });
+    } else {
+      console.error('Create button not found!');
+    }
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
@@ -2612,6 +2625,7 @@ const DashboardNav = {
 
   // Create Class Modal
   showCreateClassModal() {
+    console.log('showCreateClassModal called');
     const modal = document.createElement('div');
     modal.className = 'modal active';
     modal.innerHTML = `
