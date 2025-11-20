@@ -3445,6 +3445,9 @@ const DashboardNav = {
         return;
       }
       
+      // Store children for later use
+      this.currentChildren = children;
+      
       container.innerHTML = `
         <div style="overflow-x: auto;">
           <table class="modern-table" id="childrenTable" style="width: 100%; border-collapse: collapse;">
@@ -3452,6 +3455,7 @@ const DashboardNav = {
               <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
                 <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">#</th>
                 <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Name</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Parents</th>
                 <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Date of Birth</th>
                 <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Age</th>
                 <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Last Check-in</th>
@@ -3459,7 +3463,7 @@ const DashboardNav = {
                 <th style="padding: 0.75rem 1rem; text-align: right; font-weight: 600; color: #374151; font-size: 0.85rem;">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="childrenTableBody">
               ${children.map((child, idx) => {
                 const dob = child.date_of_birth ? new Date(child.date_of_birth) : null;
                 const age = dob ? Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000)) : 'N/A';
@@ -3503,6 +3507,12 @@ const DashboardNav = {
                       <div style="font-weight: 600; color: #111827;">${child.first_name} ${child.last_name}</div>
                       ${child.special_needs ? '<div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 0.25rem;">⭐ Special Needs</div>' : ''}
                     </td>
+                    <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;" id="parents-cell-${child.id}">
+                      <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        <span style="font-size: 0.85rem;">Loading...</span>
+                      </div>
+                    </td>
                     <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">${dob ? dob.toLocaleDateString() : 'N/A'}</td>
                     <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">${age} ${age !== 'N/A' ? 'years' : ''}</td>
                     <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">${lastCheckinText}</td>
@@ -3513,6 +3523,11 @@ const DashboardNav = {
                     </td>
                     <td style="padding: 1rem; text-align: right;">
                       <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <button class="btn-icon manage-parents-btn" title="Manage Parents" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M10.6667 14V12.6667C10.6667 11.9594 10.3857 11.2811 9.88562 10.781C9.38552 10.281 8.70725 10 8 10H3.33333C2.62609 10 1.94781 10.281 1.44772 10.781C0.947633 11.2811 0.666666 11.9594 0.666666 12.6667V14M13.3333 5.33333V9.33333M15.3333 7.33333H11.3333M8.16667 4.66667C8.16667 6.13943 6.97276 7.33333 5.5 7.33333C4.02724 7.33333 2.83333 6.13943 2.83333 4.66667C2.83333 3.19391 4.02724 2 5.5 2C6.97276 2 8.16667 3.19391 8.16667 4.66667Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
                         <button class="btn-icon info-btn" title="View Details" data-id="${child.id}">
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M8 7.33334V11.3333M8 5.33334H8.00667M14.6667 8C14.6667 11.6819 11.6819 14.6667 8 14.6667C4.3181 14.6667 1.33334 11.6819 1.33334 8C1.33334 4.3181 4.3181 1.33334 8 1.33334C11.6819 1.33334 14.6667 4.3181 14.6667 8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -3572,6 +3587,7 @@ const DashboardNav = {
     const deleteBtns = document.querySelectorAll('.delete-btn');
     const infoBtns = document.querySelectorAll('.info-btn');
     const editBtns = document.querySelectorAll('.child-edit-btn');
+    const manageParentsBtns = document.querySelectorAll('.manage-parents-btn');
 
     archiveBtns.forEach(btn => {
       btn.addEventListener('click', () => this.archiveChild(btn.dataset.id));
@@ -3602,6 +3618,17 @@ const DashboardNav = {
         }
       });
     });
+
+    manageParentsBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const childId = btn.dataset.childId;
+        const childName = btn.dataset.childName;
+        this.showParentLinkingModal(childId, childName);
+      });
+    });
+
+    // Load parents for all children
+    this.loadParentsForChildren();
   },
 
   async archiveChild(childId) {
@@ -3623,6 +3650,58 @@ const DashboardNav = {
       Utils.showToast(`Failed to archive child: ${result.error}`, 'error');
     }
   },
+
+  async loadParentsForChildren() {
+    // Get all children from the currentChildren array
+    if (!this.currentChildren || this.currentChildren.length === 0) {
+      return;
+    }
+
+    // Fetch parents for each child in parallel
+    const parentsPromises = this.currentChildren.map(child => 
+      Utils.apiRequest(`/api/children/${child.id}/parents`)
+    );
+
+    try {
+      const parentsResults = await Promise.all(parentsPromises);
+      
+      // Update each parent cell
+      this.currentChildren.forEach((child, index) => {
+        const cell = document.getElementById(`parents-cell-${child.id}`);
+        if (!cell) return;
+
+        const parentsData = parentsResults[index];
+        
+        if (parentsData && Array.isArray(parentsData) && parentsData.length > 0) {
+          const parentNames = parentsData.map(rel => {
+            const parent = rel.parents;
+            const relationshipBadge = rel.relationship_type 
+              ? `<span style="font-size: 0.7rem; color: #6b7280; margin-left: 0.25rem;">(${rel.relationship_type})</span>`
+              : '';
+            return `${parent.first_name} ${parent.last_name}${relationshipBadge}`;
+          }).join('<br>');
+          
+          cell.innerHTML = `
+            <div style="font-size: 0.85rem; line-height: 1.4;">
+              ${parentNames}
+            </div>
+          `;
+        } else {
+          cell.innerHTML = `<span style="color: #9ca3af; font-size: 0.85rem; font-style: italic;">No parents linked</span>`;
+        }
+      });
+    } catch (error) {
+      console.error('Error loading parents:', error);
+      // If there's an error, just show a placeholder
+      this.currentChildren.forEach(child => {
+        const cell = document.getElementById(`parents-cell-${child.id}`);
+        if (cell) {
+          cell.innerHTML = `<span style="color: #9ca3af; font-size: 0.85rem;">-</span>`;
+        }
+      });
+    }
+  },
+
 
   async unarchiveChild(childId) {
     const result = await Utils.apiRequest(`/api/children/${childId}/unarchive`, {
