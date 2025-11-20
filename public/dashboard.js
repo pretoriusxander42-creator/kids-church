@@ -203,11 +203,13 @@ const DashboardNav = {
       </div>
     `;
 
-    // Add create class button event
-    const createBtn = document.getElementById('createClassBtn');
-    if (createBtn) {
-      createBtn.addEventListener('click', () => this.showCreateClassModal());
-    }
+    // Add create class button event (use setTimeout to ensure DOM is ready)
+    setTimeout(() => {
+      const createBtn = document.getElementById('createClassBtn');
+      if (createBtn) {
+        createBtn.addEventListener('click', () => this.showCreateClassModal());
+      }
+    }, 0);
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
