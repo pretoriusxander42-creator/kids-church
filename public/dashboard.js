@@ -203,18 +203,47 @@ const DashboardNav = {
       </div>
     `;
 
+    console.log('[DEBUG] loadClassroomSelection called');
+    console.log('[DEBUG] content element:', content);
+
     // Use event delegation on the content container
     const self = this;
+    
+    // Remove any existing listeners first
+    const newContent = content.cloneNode(false);
+    content.parentNode.replaceChild(newContent, content);
+    content = newContent;
+    
+    // Re-add the HTML
+    content.innerHTML = `
+      <div class="classrooms-section">
+        <div class="section-header">
+          <div>
+            <h2>Select a Classroom</h2>
+            <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
+          </div>
+          <button class="btn-primary" id="createClassBtn" data-action="create-class" style="z-index: 9999; position: relative;">+ Create New Class</button>
+        </div>
+        <div id="classroomsList" class="classrooms-grid">
+          <p style="text-align: center; color: #6b7280;">Loading classrooms...</p>
+        </div>
+      </div>
+    `;
+    
     content.addEventListener('click', function(e) {
-      if (e.target && e.target.id === 'createClassBtn') {
-        console.log('Create button clicked via delegation!');
+      console.log('[DEBUG] Content clicked, target:', e.target);
+      console.log('[DEBUG] Target id:', e.target.id);
+      console.log('[DEBUG] Target matches createClassBtn:', e.target.id === 'createClassBtn');
+      
+      if (e.target && (e.target.id === 'createClassBtn' || e.target.getAttribute('data-action') === 'create-class')) {
+        console.log('[SUCCESS] Create button clicked via delegation!');
         e.preventDefault();
         e.stopPropagation();
         self.showCreateClassModal();
       }
-    });
+    }, true); // Use capture phase
 
-    console.log('Event delegation set up for create class button');
+    console.log('[DEBUG] Event delegation set up for create class button');
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
