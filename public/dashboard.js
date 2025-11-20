@@ -2778,11 +2778,10 @@ const DashboardNav = {
               <label>Relationship Type <span class="required">*</span></label>
               <select id="relationshipType" required>
                 <option value="">Select relationship...</option>
-                <option value="Mother">Mother</option>
-                <option value="Father">Father</option>
-                <option value="Guardian">Guardian</option>
-                <option value="Grandparent">Grandparent</option>
-                <option value="Other">Other</option>
+                <option value="mother">Mother</option>
+                <option value="father">Father</option>
+                <option value="guardian">Guardian</option>
+                <option value="other">Other</option>
               </select>
             </div>
 
@@ -2983,7 +2982,7 @@ const DashboardNav = {
       const activeTab = document.querySelector('.nav-tab.active');
       if (activeTab && activeTab.dataset.view === 'overview') {
         this.loadDashboardStats();
-        this.loadRecentCheckIns();
+        // loadRecentCheckIns removed - Recent Check-ins section no longer exists
       }
     }, 30000); // 30 seconds
   },
