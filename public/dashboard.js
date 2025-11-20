@@ -137,10 +137,6 @@ const DashboardNav = {
             <div id="checkInsByClass" style="margin-top: 1rem; font-size: 0.9rem;"></div>
           </div>
         </div>
-        <div class="recent-activity">
-          <h3>Recent Check-ins</h3>
-          <div id="recentCheckIns">Loading...</div>
-        </div>
       </div>
     `;
     
@@ -166,7 +162,6 @@ const DashboardNav = {
       if (datePicker) {
         datePicker.addEventListener('change', (e) => {
           this.loadCheckInsForDate(e.target.value);
-          this.loadRecentCheckIns(); // Also refresh the recent check-ins list
         });
       }
 
@@ -174,8 +169,6 @@ const DashboardNav = {
       this.loadMembershipStats();
       this.loadCheckInsForDate(today);
     }, 0);
-    
-    this.loadRecentCheckIns();
   },
 
   async loadMembershipStats() {
@@ -254,40 +247,6 @@ const DashboardNav = {
     } catch (error) {
       totalElement.textContent = 'Error';
       console.error('Failed to load check-ins:', error);
-    }
-  },
-
-  async loadRecentCheckIns() {
-    const container = document.getElementById('recentCheckIns');
-    if (!container) return;
-
-    Utils.showLoading(container, 'Loading recent check-ins...');
-
-    // Use the date from the date picker if available, otherwise use today
-    const datePicker = document.getElementById('sundayDatePicker');
-    const selectedDate = datePicker ? datePicker.value : new Date().toISOString().split('T')[0];
-    
-    const result = await Utils.apiRequest(`/api/checkins?date=${selectedDate}`);
-
-    if (result.success) {
-      const checkIns = result.data;
-      
-      if (checkIns.length === 0) {
-        Utils.showEmpty(container, 'No check-ins for this date');
-        return;
-      }
-
-      container.innerHTML = checkIns.slice(0, 10).map(ci => `
-        <div class="checkin-item">
-          <span>${ci.children?.first_name} ${ci.children?.last_name}</span>
-          <span>${Utils.formatTime(ci.check_in_time)}</span>
-          <span class="status ${ci.check_out_time ? 'checked-out' : 'checked-in'}">
-            ${ci.check_out_time ? 'Checked Out' : 'Checked In'}
-          </span>
-        </div>
-      `).join('');
-    } else {
-      Utils.showError(container, 'Failed to load recent check-ins', 'DashboardNav.loadRecentCheckIns()');
     }
   },
 
