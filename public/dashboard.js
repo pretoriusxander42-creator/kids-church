@@ -2668,63 +2668,74 @@ const DashboardNav = {
 
   // Create Class Modal
   showCreateClassModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal active';
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 500px;">
-        <h3>Create New Classroom</h3>
-        <form id="createClassForm" class="form-section">
-          <div class="form-group">
-            <label for="className">Classroom Name *</label>
-            <input type="text" id="className" required placeholder="e.g., Toddlers Room A">
-          </div>
-          
-          <div class="form-group">
-            <label for="classType">Type *</label>
-            <select id="classType" required>
-              <option value="">Select type...</option>
-              <option value="regular">Regular Class</option>
-              <option value="ftv">First Time Visitors</option>
-              <option value="special">Special Needs</option>
-              <option value="event">Special Event</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="classAgeRange">Age Range</label>
-            <input type="text" id="classAgeRange" placeholder="e.g., 2-4 years">
-          </div>
-          
-          <div class="form-group">
-            <label for="classCapacity">Maximum Capacity</label>
-            <input type="number" id="classCapacity" min="1" placeholder="e.g., 20">
-          </div>
-          
-          <div class="form-group">
-            <label for="classRoomNumber">Room Number</label>
-            <input type="text" id="classRoomNumber" placeholder="e.g., 101">
-          </div>
-          
-          <div class="form-group">
-            <label for="classRoomLocation">Room Location</label>
-            <input type="text" id="classRoomLocation" placeholder="e.g., Building A, First Floor">
-          </div>
-          
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">Create Classroom</button>
-            <button type="button" class="btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
-          </div>
-        </form>
-      </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    const form = document.getElementById('createClassForm');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await this.createClass(modal);
-    });
+    console.log('[MODAL] showCreateClassModal() called');
+    try {
+      const modal = document.createElement('div');
+      console.log('[MODAL] Created modal div');
+      modal.className = 'modal active';
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px;">
+          <h3>Create New Classroom</h3>
+          <form id="createClassForm" class="form-section">
+            <div class="form-group">
+              <label for="className">Classroom Name *</label>
+              <input type="text" id="className" required placeholder="e.g., Toddlers Room A">
+            </div>
+            
+            <div class="form-group">
+              <label for="classType">Type *</label>
+              <select id="classType" required>
+                <option value="">Select type...</option>
+                <option value="regular">Regular Class</option>
+                <option value="ftv">First Time Visitors</option>
+                <option value="special">Special Needs</option>
+                <option value="event">Special Event</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="classAgeRange">Age Range</label>
+              <input type="text" id="classAgeRange" placeholder="e.g., 2-4 years">
+            </div>
+            
+            <div class="form-group">
+              <label for="classCapacity">Maximum Capacity</label>
+              <input type="number" id="classCapacity" min="1" placeholder="e.g., 20">
+            </div>
+            
+            <div class="form-group">
+              <label for="classRoomNumber">Room Number</label>
+              <input type="text" id="classRoomNumber" placeholder="e.g., 101">
+            </div>
+            
+            <div class="form-group">
+              <label for="classRoomLocation">Room Location</label>
+              <input type="text" id="classRoomLocation" placeholder="e.g., Building A, First Floor">
+            </div>
+            
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Create Classroom</button>
+              <button type="button" class="btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+            </div>
+          </form>
+        </div>
+      `;
+      
+      console.log('[MODAL] About to append modal to body');
+      document.body.appendChild(modal);
+      console.log('[MODAL] Modal appended successfully');
+      
+      const form = document.getElementById('createClassForm');
+      console.log('[MODAL] Found form:', form);
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await this.createClass(modal);
+      });
+      console.log('[MODAL] Form submit listener attached');
+    } catch (error) {
+      console.error('[MODAL ERROR]', error);
+      alert('Error opening modal: ' + error.message);
+    }
   },
 
   async createClass(modal) {
