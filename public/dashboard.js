@@ -3009,132 +3009,301 @@ const DashboardNav = {
   async loadChildManagement(content) {
     content.innerHTML = `
       <div class="child-management-section">
-        <div class="section-header">
-          <h2>Child Management</h2>
-          <div class="filter-actions">
-            <label style="display: flex; align-items: center; gap: 0.5rem; margin-right: 1rem;">
-              <input type="checkbox" id="showArchived">
-              <span>Show Archived</span>
-            </label>
-            <select id="inactivityFilter" class="form-control" style="width: auto;">
-              <option value="">All Children</option>
-              <option value="30">Inactive >30 days</option>
-              <option value="60">Inactive >60 days</option>
-              <option value="90">Inactive >90 days</option>
-            </select>
-            <input type="text" id="childSearchBox" placeholder="Search by name..." style="width: 250px;" class="form-control">
+        <div class="section-header" style="margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="margin: 0 0 0.25rem 0;">Child Management</h2>
+            <p style="margin: 0; color: #6b7280; font-size: 0.9rem;">View, search, and manage all registered children</p>
           </div>
+          <button class="btn-primary" id="addNewChildBtn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+              <path d="M8 3.33334V12.6667M3.33334 8H12.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Add New Child
+          </button>
+        </div>
+
+        <div class="management-filters" style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <div style="flex: 1; min-width: 250px;">
+            <input type="text" id="childSearchBox" placeholder="Search by name..." 
+                   style="width: 100%; padding: 0.625rem 1rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+          </div>
+          
+          <select id="inactivityFilter" style="padding: 0.625rem 1rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; background: white;">
+            <option value="">All Children</option>
+            <option value="30">Inactive 30+ days</option>
+            <option value="60">Inactive 60+ days</option>
+            <option value="90">Inactive 90+ days</option>
+          </select>
+
+          <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: white; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;">
+            <input type="checkbox" id="showArchived" style="width: 16px; height: 16px; cursor: pointer;">
+            <span style="font-size: 0.95rem; color: #374151;">Show Archived</span>
+          </label>
         </div>
         
-        <div id="childManagementTable" class="management-table-container">
-          <p style="text-align: center; color: #6b7280;">Loading children...</p>
+        <div id="childManagementStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+          <!-- Stats will be loaded here -->
+        </div>
+
+        <div id="childManagementTable" class="management-table-container" style="background: white; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden;">
+          <div style="display: flex; align-items: center; justify-content: center; padding: 3rem; color: #6b7280;">
+            <div style="text-align: center;">
+              <div class="spinner" style="margin: 0 auto 1rem;"></div>
+              <p>Loading children...</p>
+            </div>
+          </div>
         </div>
       </div>
     `;
 
-    // Setup filters
-    const searchBox = document.getElementById('childSearchBox');
-    const archivedCheckbox = document.getElementById('showArchived');
-    const inactivityFilter = document.getElementById('inactivityFilter');
+    // Setup event listeners
+    setTimeout(() => {
+      const addNewChildBtn = document.getElementById('addNewChildBtn');
+      const searchBox = document.getElementById('childSearchBox');
+      const archivedCheckbox = document.getElementById('showArchived');
+      const inactivityFilter = document.getElementById('inactivityFilter');
 
-    searchBox.addEventListener('input', () => this.filterChildrenTable());
-    archivedCheckbox.addEventListener('change', () => this.loadChildrenTable());
-    inactivityFilter.addEventListener('change', () => this.loadChildrenTable());
+      if (addNewChildBtn) {
+        addNewChildBtn.addEventListener('click', () => this.showChildRegistrationModal());
+      }
+
+      if (searchBox) {
+        searchBox.addEventListener('input', () => this.filterChildrenTable());
+      }
+      
+      if (archivedCheckbox) {
+        archivedCheckbox.addEventListener('change', () => this.loadChildrenTable());
+      }
+      
+      if (inactivityFilter) {
+        inactivityFilter.addEventListener('change', () => this.loadChildrenTable());
+      }
+    }, 0);
 
     await this.loadChildrenTable();
   },
 
   async loadChildrenTable() {
     const container = document.getElementById('childManagementTable');
+    const statsContainer = document.getElementById('childManagementStats');
     const showArchived = document.getElementById('showArchived')?.checked;
     const inactivityDays = document.getElementById('inactivityFilter')?.value;
     
-    container.innerHTML = '<p style="text-align: center; color: #6b7280;">Loading children...</p>';
-
-    let result;
-    if (inactivityDays) {
-      result = await Utils.apiRequest(`/api/children/inactive/${inactivityDays}`);
-    } else {
-      result = await Utils.apiRequest(`/api/children?limit=1000&include_archived=${showArchived}`);
-    }
-
-    if (!result.success) {
-      Utils.showError(container, 'Failed to load children');
-      return;
-    }
-
-    const children = result.data || [];
-    
-    if (children.length === 0) {
-      container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No children found.</p>';
-      return;
-    }
-
-    const now = new Date();
-    
     container.innerHTML = `
-      <table class="spreadsheet-table" id="childrenTable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Date of Birth</th>
-            <th>Age</th>
-            <th>Last Check-in</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${children.map((child, idx) => {
-            const dob = new Date(child.date_of_birth);
-            const age = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
-            const lastCheckin = child.last_check_in ? new Date(child.last_check_in) : null;
-            const daysSinceCheckin = lastCheckin ? Math.floor((now - lastCheckin) / (24 * 60 * 60 * 1000)) : null;
-            
-            let statusBadge = '';
-            if (child.is_archived) {
-              statusBadge = '<span class="badge badge-archived">Archived</span>';
-            } else if (!lastCheckin) {
-              statusBadge = '<span class="badge badge-never">Never Checked In</span>';
-            } else if (daysSinceCheckin > 90) {
-              statusBadge = '<span class="badge badge-danger">Inactive 90+ days</span>';
-            } else if (daysSinceCheckin > 60) {
-              statusBadge = '<span class="badge badge-warning">Inactive 60+ days</span>';
-            } else if (daysSinceCheckin > 30) {
-              statusBadge = '<span class="badge badge-info">Inactive 30+ days</span>';
-            } else {
-              statusBadge = '<span class="badge badge-success">Active</span>';
-            }
-            
-            const lastCheckinText = lastCheckin 
-              ? `${lastCheckin.toLocaleDateString()} (${daysSinceCheckin} days ago)`
-              : 'Never';
-            
-            return `
-              <tr data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}">
-                <td class="row-number">${idx + 1}</td>
-                <td class="child-name"><strong>${child.first_name} ${child.last_name}</strong></td>
-                <td>${dob.toLocaleDateString()}</td>
-                <td>${age} years</td>
-                <td class="${!lastCheckin ? 'text-warning' : daysSinceCheckin > 60 ? 'text-danger' : ''}">${lastCheckinText}</td>
-                <td>${statusBadge}</td>
-                <td class="actions-cell">
-                  ${child.is_archived 
-                    ? `<button class="action-btn unarchive-btn" title="Restore child to active status" data-id="${child.id}">Unarchive</button>`
-                    : `<button class="action-btn archive-btn" title="Archive inactive child" data-id="${child.id}">Archive</button>`
-                  }
-                  <button class="action-btn info-btn" title="View full child details" data-id="${child.id}">Details</button>
-                  <button class="action-btn delete-btn" title="Permanently delete child record" data-id="${child.id}">Delete</button>
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
+      <div style="display: flex; align-items: center; justify-content: center; padding: 3rem; color: #6b7280;">
+        <div style="text-align: center;">
+          <div class="spinner" style="margin: 0 auto 1rem;"></div>
+          <p>Loading children...</p>
+        </div>
+      </div>
     `;
 
-    this.attachChildManagementActions();
+    try {
+      let result;
+      if (inactivityDays) {
+        result = await Utils.apiRequest(`/api/children/inactive/${inactivityDays}`);
+      } else {
+        result = await Utils.apiRequest(`/api/children?limit=1000&include_archived=${showArchived}`);
+      }
+
+      if (!result.success) {
+        container.innerHTML = `
+          <div style="padding: 3rem; text-align: center;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #ef4444;">
+              <path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p style="color: #ef4444; font-weight: 600; margin-bottom: 0.5rem;">Failed to load children</p>
+            <p style="color: #6b7280; font-size: 0.9rem;">${result.error || 'Unknown error occurred'}</p>
+            <button class="btn-secondary" onclick="DashboardNav.loadChildrenTable()" style="margin-top: 1rem;">Try Again</button>
+          </div>
+        `;
+        return;
+      }
+
+      const children = result.data || [];
+      
+      // Calculate stats
+      const now = new Date();
+      const stats = {
+        total: children.length,
+        active: 0,
+        inactive30: 0,
+        inactive60: 0,
+        inactive90: 0,
+        neverCheckedIn: 0,
+        archived: 0
+      };
+
+      children.forEach(child => {
+        if (child.is_archived) {
+          stats.archived++;
+        } else if (!child.last_check_in) {
+          stats.neverCheckedIn++;
+        } else {
+          const lastCheckin = new Date(child.last_check_in);
+          const daysSince = Math.floor((now - lastCheckin) / (24 * 60 * 60 * 1000));
+          
+          if (daysSince > 90) stats.inactive90++;
+          else if (daysSince > 60) stats.inactive60++;
+          else if (daysSince > 30) stats.inactive30++;
+          else stats.active++;
+        }
+      });
+
+      // Display stats
+      if (statsContainer && !inactivityDays) {
+        statsContainer.innerHTML = `
+          <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Total Children</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #111827;">${stats.total}</div>
+          </div>
+          <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Active</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #10b981;">${stats.active}</div>
+          </div>
+          <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Never Checked In</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #f59e0b;">${stats.neverCheckedIn}</div>
+          </div>
+          <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Inactive 90+ days</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #ef4444;">${stats.inactive90}</div>
+          </div>
+        `;
+      }
+
+      if (children.length === 0) {
+        container.innerHTML = `
+          <div style="padding: 3rem; text-align: center;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #9ca3af;">
+              <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p style="color: #6b7280; font-weight: 600; margin-bottom: 0.5rem;">No children found</p>
+            <p style="color: #9ca3af; font-size: 0.9rem;">Try adjusting your filters or add a new child</p>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = `
+        <div style="overflow-x: auto;">
+          <table class="modern-table" id="childrenTable" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">#</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Name</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Date of Birth</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Age</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Last Check-in</th>
+                <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Status</th>
+                <th style="padding: 0.75rem 1rem; text-align: right; font-weight: 600; color: #374151; font-size: 0.85rem;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${children.map((child, idx) => {
+                const dob = child.date_of_birth ? new Date(child.date_of_birth) : null;
+                const age = dob ? Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000)) : 'N/A';
+                const lastCheckin = child.last_check_in ? new Date(child.last_check_in) : null;
+                const daysSinceCheckin = lastCheckin ? Math.floor((now - lastCheckin) / (24 * 60 * 60 * 1000)) : null;
+                
+                let statusBadge = '';
+                let statusColor = '';
+                
+                if (child.is_archived) {
+                  statusBadge = 'Archived';
+                  statusColor = '#6b7280';
+                } else if (!lastCheckin) {
+                  statusBadge = 'Never Checked In';
+                  statusColor = '#f59e0b';
+                } else if (daysSinceCheckin > 90) {
+                  statusBadge = `Inactive ${daysSinceCheckin}d`;
+                  statusColor = '#ef4444';
+                } else if (daysSinceCheckin > 60) {
+                  statusBadge = `Inactive ${daysSinceCheckin}d`;
+                  statusColor = '#f97316';
+                } else if (daysSinceCheckin > 30) {
+                  statusBadge = `Inactive ${daysSinceCheckin}d`;
+                  statusColor = '#f59e0b';
+                } else {
+                  statusBadge = 'Active';
+                  statusColor = '#10b981';
+                }
+                
+                const lastCheckinText = lastCheckin 
+                  ? lastCheckin.toLocaleDateString()
+                  : 'Never';
+                
+                return `
+                  <tr data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}" 
+                      style="border-bottom: 1px solid #f3f4f6; transition: background-color 0.15s;"
+                      onmouseover="this.style.backgroundColor='#f9fafb'" 
+                      onmouseout="this.style.backgroundColor='white'">
+                    <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">${idx + 1}</td>
+                    <td style="padding: 1rem;">
+                      <div style="font-weight: 600; color: #111827;">${child.first_name} ${child.last_name}</div>
+                      ${child.special_needs ? '<div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 0.25rem;">⭐ Special Needs</div>' : ''}
+                    </td>
+                    <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">${dob ? dob.toLocaleDateString() : 'N/A'}</td>
+                    <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">${age} ${age !== 'N/A' ? 'years' : ''}</td>
+                    <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">${lastCheckinText}</td>
+                    <td style="padding: 1rem;">
+                      <span style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; color: white; background: ${statusColor};">
+                        ${statusBadge}
+                      </span>
+                    </td>
+                    <td style="padding: 1rem; text-align: right;">
+                      <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <button class="btn-icon info-btn" title="View Details" data-id="${child.id}">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 7.33334V11.3333M8 5.33334H8.00667M14.6667 8C14.6667 11.6819 11.6819 14.6667 8 14.6667C4.3181 14.6667 1.33334 11.6819 1.33334 8C1.33334 4.3181 4.3181 1.33334 8 1.33334C11.6819 1.33334 14.6667 4.3181 14.6667 8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                        <button class="btn-icon child-edit-btn" title="Edit Child" data-id="${child.id}">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M11.333 2.00004C11.5081 1.82494 11.716 1.68605 11.9447 1.59129C12.1735 1.49653 12.4187 1.44775 12.6663 1.44775C12.914 1.44775 13.1592 1.49653 13.3879 1.59129C13.6167 1.68605 13.8246 1.82494 13.9997 2.00004C14.1748 2.17513 14.3137 2.383 14.4084 2.61178C14.5032 2.84055 14.552 3.08575 14.552 3.33337C14.552 3.58099 14.5032 3.82619 14.4084 4.05497C14.3137 4.28374 14.1748 4.49161 13.9997 4.66671L5.33301 13.3334L1.66634 14.3334L2.66634 10.6667L11.333 2.00004Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                        ${child.is_archived 
+                          ? `<button class="btn-icon unarchive-btn" title="Unarchive" data-id="${child.id}">
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M2.66666 5.33334V13.3333C2.66666 13.687 2.80714 14.0261 3.05719 14.2762C3.30724 14.5262 3.64638 14.6667 4 14.6667H12C12.3536 14.6667 12.6928 14.5262 12.9428 14.2762C13.1929 14.0261 13.3333 13.687 13.3333 13.3333V5.33334M10.6667 8L8 5.33334M8 5.33334L5.33333 8M8 5.33334V10.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                              </svg>
+                            </button>`
+                          : `<button class="btn-icon archive-btn" title="Archive" data-id="${child.id}">
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M2.66666 5.33334H13.3333M2.66666 5.33334V13.3333C2.66666 13.687 2.80714 14.0261 3.05719 14.2762C3.30724 14.5262 3.64638 14.6667 4 14.6667H12C12.3536 14.6667 12.6928 14.5262 12.9428 14.2762C13.1929 14.0261 13.3333 13.687 13.3333 13.3333V5.33334M2.66666 5.33334L4 1.33334H12L13.3333 5.33334M6.66666 8V11.3333M9.33333 8V11.3333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                              </svg>
+                            </button>`
+                        }
+                        <button class="btn-icon btn-icon-danger delete-btn" title="Delete" data-id="${child.id}">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M2 4H3.33333H14M5.33333 4V2.66667C5.33333 2.48986 5.40357 2.32029 5.5286 2.19526C5.65362 2.07024 5.82319 2 6 2H10C10.1768 2 10.3464 2.07024 10.4714 2.19526C10.5964 2.32029 10.6667 2.48986 10.6667 2.66667V4M12.6667 4V13.3333C12.6667 13.5101 12.5964 13.6797 12.4714 13.8047C12.3464 13.9298 12.1768 14 12 14H4C3.82319 14 3.65362 13.9298 3.5286 13.8047C3.40357 13.6797 3.33333 13.5101 3.33333 13.3333V4H12.6667Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      this.attachChildManagementActions();
+    } catch (error) {
+      console.error('Error loading children:', error);
+      container.innerHTML = `
+        <div style="padding: 3rem; text-align: center;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #ef4444;">
+            <path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <p style="color: #ef4444; font-weight: 600; margin-bottom: 0.5rem;">Error Loading Children</p>
+          <p style="color: #6b7280; font-size: 0.9rem;">${error.message || 'An unexpected error occurred'}</p>
+          <button class="btn-secondary" onclick="DashboardNav.loadChildrenTable()" style="margin-top: 1rem;">Try Again</button>
+        </div>
+      `;
+    }
   },
 
   attachChildManagementActions() {
@@ -3142,6 +3311,7 @@ const DashboardNav = {
     const unarchiveBtns = document.querySelectorAll('.unarchive-btn');
     const deleteBtns = document.querySelectorAll('.delete-btn');
     const infoBtns = document.querySelectorAll('.info-btn');
+    const editBtns = document.querySelectorAll('.child-edit-btn');
 
     archiveBtns.forEach(btn => {
       btn.addEventListener('click', () => this.archiveChild(btn.dataset.id));
@@ -3153,6 +3323,15 @@ const DashboardNav = {
 
     deleteBtns.forEach(btn => {
       btn.addEventListener('click', () => this.deleteChild(btn.dataset.id));
+    });
+
+    editBtns.forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const result = await Utils.apiRequest(`/api/children/${btn.dataset.id}`);
+        if (result.success) {
+          this.showEditChildModal(result.data);
+        }
+      });
     });
 
     infoBtns.forEach(btn => {
