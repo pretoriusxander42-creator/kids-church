@@ -345,6 +345,43 @@ body {
     color: var(--text-primary);
 }
 
+.btn-icon {
+    background-color: transparent;
+    color: #6b7280;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.btn-icon:hover {
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+.btn-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.btn-icon-danger {
+    color: #ef4444;
+}
+
+.btn-icon-danger:hover {
+    background-color: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
 .error-message {
     color: var(--error-color);
     background-color: #fef2f2;

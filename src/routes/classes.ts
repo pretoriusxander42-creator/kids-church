@@ -14,14 +14,14 @@ const supabase = createClient(
 const classSchema = z.object({
   name: z.string().min(1),
   type: z.enum(['regular', 'special', 'ftv', 'event']),
-  description: z.string().optional(),
-  age_min: z.number().int().optional(),
-  age_max: z.number().int().optional(),
-  capacity: z.number().int().optional(),
-  room_location: z.string().optional(),
-  teacher_id: z.string().uuid().optional(),
-  schedule: z.string().optional(),
-  logo_url: z.string().url().optional().or(z.literal('')),
+  description: z.string().optional().nullable(),
+  age_min: z.number().int().optional().nullable(),
+  age_max: z.number().int().optional().nullable(),
+  capacity: z.number().int().optional().nullable(),
+  room_location: z.string().optional().nullable(),
+  teacher_id: z.string().uuid().optional().nullable(),
+  schedule: z.string().optional().nullable(),
+  logo_url: z.string().optional().nullable(),
 });
 
 // GET all classes
