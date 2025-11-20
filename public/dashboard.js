@@ -192,24 +192,16 @@ const DashboardNav = {
       <div class="classrooms-section">
         <div class="section-header">
           <div>
-            <h2>🏫 Select a Classroom</h2>
+            <h2>Select a Classroom</h2>
             <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
           </div>
-          <button class="btn-primary" id="createClassBtn">+ Create New Class</button>
+          <button class="btn-primary" onclick="DashboardNav.showCreateClassModal()">+ Create New Class</button>
         </div>
         <div id="classroomsList" class="classrooms-grid">
           <p style="text-align: center; color: #6b7280;">Loading classrooms...</p>
         </div>
       </div>
     `;
-
-    // Add create class button event (use setTimeout to ensure DOM is ready)
-    setTimeout(() => {
-      const createBtn = document.getElementById('createClassBtn');
-      if (createBtn) {
-        createBtn.addEventListener('click', () => this.showCreateClassModal());
-      }
-    }, 0);
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
@@ -1604,15 +1596,15 @@ const DashboardNav = {
       <div class="class-board-view">
         <div class="class-board-header">
           <div class="header-left">
-            <button class="btn-secondary" id="backFromClassBoard">← Back</button>
-            <h2>📋 ${className} - Class Board</h2>
+            <button class="btn-secondary" id="backFromClassBoard">← Back to Classrooms</button>
+            <h2>${className} - Class Board</h2>
           </div>
           <div class="header-right">
             <div class="board-stats" id="boardStats">
               <span class="stat-badge">Loading...</span>
             </div>
-            <button class="btn-secondary" id="exportToCSV">📊 Export CSV</button>
-            <button class="btn-secondary" id="printClassBoard">🖨️ Print</button>
+            <button class="btn-secondary" id="exportToCSV">Export to CSV</button>
+            <button class="btn-secondary" id="printClassBoard">Print Board</button>
           </div>
         </div>
         
@@ -1709,14 +1701,14 @@ const DashboardNav = {
                         ${child.medical_notes || '-'}
                       </td>
                       <td class="actions-cell">
-                        <button class="action-btn checkout-btn" data-checkin-id="${ci.id}" data-code="${ci.security_code}" title="Check Out">
-                          ✓
+                        <button class="action-btn checkout-btn" data-checkin-id="${ci.id}" data-code="${ci.security_code}" title="Check Out Child">
+                          Checkout
                         </button>
-                        <button class="action-btn print-btn" data-checkin-data='${JSON.stringify({ child, code: ci.security_code })}' title="Print Tag">
-                          🖨️
+                        <button class="action-btn print-btn" data-checkin-data='${JSON.stringify({ child, code: ci.security_code })}' title="Print Security Tag">
+                          Print Tag
                         </button>
-                        <button class="action-btn info-btn" data-child='${JSON.stringify(child).replace(/'/g, "&#39;")}' title="View Details">
-                          ℹ️
+                        <button class="action-btn info-btn" data-child='${JSON.stringify(child).replace(/'/g, "&#39;")}' title="View Child Details">
+                          Details
                         </button>
                       </td>
                     </tr>
@@ -2742,7 +2734,7 @@ const DashboardNav = {
     content.innerHTML = `
       <div class="child-management-section">
         <div class="section-header">
-          <h2>👶 Manage Children</h2>
+          <h2>Child Management</h2>
           <div class="filter-actions">
             <label style="display: flex; align-items: center; gap: 0.5rem; margin-right: 1rem;">
               <input type="checkbox" id="showArchived">
@@ -2754,7 +2746,7 @@ const DashboardNav = {
               <option value="60">Inactive >60 days</option>
               <option value="90">Inactive >90 days</option>
             </select>
-            <input type="text" id="childSearchBox" placeholder="Search children..." style="width: 250px;" class="form-control">
+            <input type="text" id="childSearchBox" placeholder="Search by name..." style="width: 250px;" class="form-control">
           </div>
         </div>
         
@@ -2853,11 +2845,11 @@ const DashboardNav = {
                 <td>${statusBadge}</td>
                 <td class="actions-cell">
                   ${child.is_archived 
-                    ? `<button class="action-btn unarchive-btn" title="Unarchive" data-id="${child.id}">↩️</button>`
-                    : `<button class="action-btn archive-btn" title="Archive" data-id="${child.id}">📦</button>`
+                    ? `<button class="action-btn unarchive-btn" title="Restore child to active status" data-id="${child.id}">Unarchive</button>`
+                    : `<button class="action-btn archive-btn" title="Archive inactive child" data-id="${child.id}">Archive</button>`
                   }
-                  <button class="action-btn info-btn" title="View Details" data-id="${child.id}">ℹ️</button>
-                  <button class="action-btn delete-btn" title="Delete Permanently" data-id="${child.id}">🗑️</button>
+                  <button class="action-btn info-btn" title="View full child details" data-id="${child.id}">Details</button>
+                  <button class="action-btn delete-btn" title="Permanently delete child record" data-id="${child.id}">Delete</button>
                 </td>
               </tr>
             `;

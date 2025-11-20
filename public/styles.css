@@ -1414,54 +1414,64 @@ body {
 .actions-cell {
     text-align: center;
     white-space: nowrap;
+    padding: 0.75rem !important;
 }
 
 .action-btn {
-    background: none;
+    background: white;
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
     margin: 0 0.25rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    min-width: auto;
+    height: auto;
+    color: var(--text-primary);
 }
 
 .action-btn:hover {
     background: var(--background);
-    transform: scale(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .checkout-btn {
     color: #10b981;
     border-color: #10b981;
+    background: #ecfdf5;
 }
 
 .checkout-btn:hover {
     background: #d1fae5;
+    border-color: #059669;
 }
 
 .print-btn {
     color: #6366f1;
     border-color: #6366f1;
+    background: #eef2ff;
 }
 
 .print-btn:hover {
     background: #e0e7ff;
+    border-color: #4f46e5;
 }
 
 .info-btn {
-    color: #64748b;
-    border-color: #64748b;
+    color: #3b82f6;
+    border-color: #3b82f6;
+    background: #eff6ff;
 }
 
 .info-btn:hover {
-    background: #f1f5f9;
+    background: #dbeafe;
+    border-color: #2563eb;
 }
 
 /* Child Details Modal */
@@ -1670,28 +1680,34 @@ body {
 .archive-btn {
     color: #8b5cf6;
     border-color: #8b5cf6;
+    background: #f5f3ff;
 }
 
 .archive-btn:hover {
     background: #ede9fe;
+    border-color: #7c3aed;
 }
 
 .unarchive-btn {
     color: #10b981;
     border-color: #10b981;
+    background: #ecfdf5;
 }
 
 .unarchive-btn:hover {
     background: #d1fae5;
+    border-color: #059669;
 }
 
 .delete-btn {
     color: #ef4444;
     border-color: #ef4444;
+    background: #fef2f2;
 }
 
 .delete-btn:hover {
     background: #fee2e2;
+    border-color: #dc2626;
 }
 
 /* Responsive adjustments */
