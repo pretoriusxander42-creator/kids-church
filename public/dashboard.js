@@ -121,7 +121,8 @@ const DashboardNav = {
             <button class="btn-secondary" id="manageChildrenBtn">Manage Children</button>
           </div>
         </div>
-        <div class="activity-cards">
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
           <div class="activity-card">
             <h3>Total Child Membership</h3>
             <p class="big-number" id="totalMembership">Loading...</p>
@@ -135,6 +136,13 @@ const DashboardNav = {
             </div>
             <p class="big-number" id="sundayCheckIns">Loading...</p>
             <div id="checkInsByClass" style="margin-top: 1rem; font-size: 0.9rem;"></div>
+          </div>
+        </div>
+
+        <div class="activity-card" style="padding: 1.5rem;">
+          <h3 style="margin-bottom: 1rem;">Membership Distribution by Classroom</h3>
+          <div style="position: relative; height: 400px; max-width: 600px; margin: 0 auto;">
+            <canvas id="membershipPieChart"></canvas>
           </div>
         </div>
       </div>
@@ -197,6 +205,9 @@ const DashboardNav = {
               </div>
             `).join('');
         }
+
+        // Create pie chart
+        this.createMembershipPieChart(classes);
       } else {
         totalElement.textContent = 'Error';
         console.error('Failed to load membership stats:', result.error);
@@ -205,6 +216,112 @@ const DashboardNav = {
       totalElement.textContent = 'Error';
       console.error('Failed to load membership stats:', error);
     }
+  },
+
+  createMembershipPieChart(classes) {
+    const canvas = document.getElementById('membershipPieChart');
+    if (!canvas) return;
+
+    // Destroy existing chart if it exists
+    if (this.membershipChart) {
+      this.membershipChart.destroy();
+    }
+
+    // Filter out classes with no members
+    const classesWithMembers = classes.filter(c => c.memberCount > 0);
+
+    if (classesWithMembers.length === 0) {
+      canvas.parentElement.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No membership data available</p>';
+      return;
+    }
+
+    // Generate colors for each classroom
+    const colors = [
+      '#3b82f6', // blue
+      '#10b981', // green
+      '#f59e0b', // amber
+      '#ef4444', // red
+      '#8b5cf6', // purple
+      '#ec4899', // pink
+      '#14b8a6', // teal
+      '#f97316', // orange
+      '#6366f1', // indigo
+      '#84cc16', // lime
+    ];
+
+    const data = {
+      labels: classesWithMembers.map(c => c.name),
+      datasets: [{
+        label: 'Members',
+        data: classesWithMembers.map(c => c.memberCount),
+        backgroundColor: colors.slice(0, classesWithMembers.length),
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        hoverOffset: 10
+      }]
+    };
+
+    const config = {
+      type: 'pie',
+      data: data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              padding: 15,
+              font: {
+                size: 13,
+                family: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+              },
+              generateLabels: function(chart) {
+                const data = chart.data;
+                if (data.labels.length && data.datasets.length) {
+                  return data.labels.map((label, i) => {
+                    const value = data.datasets[0].data[i];
+                    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    return {
+                      text: `${label} (${value})`,
+                      fillStyle: data.datasets[0].backgroundColor[i],
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
+                return [];
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleFont: {
+              size: 14,
+              weight: 'bold'
+            },
+            bodyFont: {
+              size: 13
+            },
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: true,
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${label}: ${value} children (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    this.membershipChart = new Chart(canvas, config);
   },
 
   async loadCheckInsForDate(date) {
