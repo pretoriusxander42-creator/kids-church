@@ -115,7 +115,8 @@ export const schemas = {
   createCheckin: z.object({
     child_id: z.string().uuid('Invalid child ID'),
     parent_id: z.string().uuid('Invalid parent ID'),
-    class_attended: z.string().max(100).optional(),
+    checked_in_by: z.string().uuid('Invalid user ID').optional(),
+    class_attended: z.string().uuid('Invalid class ID').optional(),
     notes: z.string().max(500).optional(),
   }),
 

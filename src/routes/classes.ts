@@ -15,10 +15,12 @@ const classSchema = z.object({
   name: z.string().min(1),
   type: z.enum(['regular', 'special', 'ftv', 'event']),
   description: z.string().optional(),
-  age_range_min: z.number().int().optional(),
-  age_range_max: z.number().int().optional(),
+  age_min: z.number().int().optional(),
+  age_max: z.number().int().optional(),
   capacity: z.number().int().optional(),
   room_location: z.string().optional(),
+  teacher_id: z.string().uuid().optional(),
+  schedule: z.string().optional(),
   is_active: z.boolean().optional(),
 });
 
