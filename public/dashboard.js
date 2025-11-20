@@ -195,7 +195,7 @@ const DashboardNav = {
             <h2>Select a Classroom</h2>
             <p style="color: #64748b; margin-top: 0.5rem;">Choose a classroom to begin check-in</p>
           </div>
-          <button class="btn-primary" id="createClassBtn" data-action="create-class">+ Create New Class</button>
+          <button class="btn-primary" id="createClassBtn" data-action="create-class" onclick="console.log('[ONCLICK] Button clicked!'); if (window.DashboardNav) { window.DashboardNav.showCreateClassModal(); } return false;">+ Create New Class</button>
         </div>
         <div id="classroomsList" class="classrooms-grid">
           <p style="text-align: center; color: #6b7280;">Loading classrooms...</p>
@@ -211,10 +211,17 @@ const DashboardNav = {
     // Create and store the event handler
     const self = this;
     content._createClassHandler = function(e) {
+      console.log('[CLICK EVENT] Captured click on:', e.target);
+      console.log('[CLICK EVENT] Target tagName:', e.target.tagName);
+      console.log('[CLICK EVENT] Target id:', e.target.id);
+      console.log('[CLICK EVENT] Target className:', e.target.className);
+      
       // Check if clicked element or any parent is the button
       let target = e.target;
       while (target && target !== content) {
+        console.log('[CHECKING] Current element:', target.tagName, 'id:', target.id, 'class:', target.className);
         if (target.id === 'createClassBtn' || target.getAttribute('data-action') === 'create-class') {
+          console.log('[SUCCESS] Found button! Calling showCreateClassModal()');
           e.preventDefault();
           e.stopPropagation();
           self.showCreateClassModal();
@@ -222,10 +229,12 @@ const DashboardNav = {
         }
         target = target.parentElement;
       }
+      console.log('[NO MATCH] Button not found in click path');
     };
 
     // Attach the event listener with capture phase
     content.addEventListener('click', content._createClassHandler, true);
+    console.log('[SETUP] Event listener attached to content element');
 
     const container = document.getElementById('classroomsList');
     const result = await Utils.apiRequest('/api/classes');
