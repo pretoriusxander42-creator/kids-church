@@ -109,6 +109,11 @@ const Utils = {
       }
     };
 
+    // Stringify body if it's an object and not already a string
+    if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
+      config.body = JSON.stringify(config.body);
+    }
+
     try {
       const response = await fetch(endpoint, config);
       

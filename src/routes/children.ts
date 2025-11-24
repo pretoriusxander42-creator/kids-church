@@ -234,4 +234,30 @@ router.get('/inactive/:days', async (req, res) => {
   });
 });
 
+// Link child to parent (alternative endpoint format)
+router.post('/link-parent', async (req, res) => {
+  const { childId, parentId, relationshipType, authorizedPickup } = req.body;
+
+  if (!childId || !parentId) {
+    return res.status(400).json({ error: 'childId and parentId are required' });
+  }
+
+  const { data, error } = await supabase
+    .from('parent_child_relationships')
+    .insert([{ 
+      parent_id: parentId, 
+      child_id: childId, 
+      relationship_type: relationshipType || 'parent',
+      is_authorized_pickup: authorizedPickup !== undefined ? authorizedPickup : true
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.status(201).json({ message: 'Child linked to parent successfully', data });
+});
+
 export default router;

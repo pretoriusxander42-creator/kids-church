@@ -200,4 +200,43 @@ router.delete('/:id', async (req, res) => {
   });
 });
 
+// Assign child to class
+router.post('/assign', async (req, res) => {
+  const { childId, classId } = req.body;
+
+  if (!childId || !classId) {
+    return res.status(400).json({ error: 'childId and classId are required' });
+  }
+
+  // Check if assignment already exists
+  const { data: existing } = await supabase
+    .from('class_assignments')
+    .select('*')
+    .eq('child_id', childId)
+    .eq('class_id', classId)
+    .eq('status', 'active')
+    .single();
+
+  if (existing) {
+    return res.json({ message: 'Child already assigned to this class', data: existing });
+  }
+
+  const { data, error } = await supabase
+    .from('class_assignments')
+    .insert([{ 
+      child_id: childId, 
+      class_id: classId,
+      status: 'active',
+      assigned_at: new Date().toISOString()
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  return res.status(201).json({ message: 'Child assigned to class successfully', data });
+});
+
 export default router;

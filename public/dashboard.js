@@ -702,6 +702,284 @@ const DashboardNav = {
     // Store selected classroom context
     this.selectedClassroom = { id: classId, name: className, type: classType };
 
+    // Directly open the class board instead of showing options modal
+    this.showClassBoard(classId, className, classType);
+  },
+
+  async showClassBoard(classId, className, classType) {
+    // Store selected classroom context
+    this.selectedClassroom = { id: classId, name: className, type: classType };
+
+    const content = document.getElementById('dashboardContent');
+    content.innerHTML = `
+      <div class="class-board-section">
+        <div class="section-header" style="margin-bottom: 1.5rem;">
+          <div>
+            <button class="btn-secondary" id="backToClassroomsBtn" style="margin-bottom: 0.5rem;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Back to Classrooms
+            </button>
+            <h2 style="margin: 0.5rem 0 0.25rem 0;">🏫 ${className}</h2>
+            <p style="margin: 0; color: #6b7280; font-size: 0.9rem;">All children assigned to this class</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-secondary" id="importToClassBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M14 10v2.667A1.333 1.333 0 0112.667 14H3.333A1.333 1.333 0 012 12.667V10M11.3333 5.33333L8 2M8 2L4.66667 5.33333M8 2V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Import to Class
+            </button>
+            <button class="btn-primary" id="addFTVToClassBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M8 3.33334V12.6667M3.33334 8H12.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Add FTV
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <div class="form-group" style="margin: 0;">
+            <input 
+              type="text" 
+              id="classChildrenSearch" 
+              placeholder="Search children in this class..." 
+              style="width: 100%; font-size: 1rem; padding: 0.875rem 1rem;"
+            >
+          </div>
+        </div>
+
+        <div id="classBoardStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+          <!-- Stats will be loaded here -->
+        </div>
+
+        <div id="classBoardChildren" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+          <div style="padding: 2rem; text-align: center; color: #6b7280;">
+            <div class="spinner" style="margin: 0 auto 1rem;"></div>
+            <p>Loading children...</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Setup event listeners
+    setTimeout(() => {
+      const backBtn = document.getElementById('backToClassroomsBtn');
+      const importBtn = document.getElementById('importToClassBtn');
+      const addFTVBtn = document.getElementById('addFTVToClassBtn');
+      const searchInput = document.getElementById('classChildrenSearch');
+
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          this.loadClassroomSelection(content);
+        });
+      }
+
+      if (importBtn) {
+        importBtn.addEventListener('click', () => {
+          this.showImportDataModal(classId, className);
+        });
+      }
+
+      if (addFTVBtn) {
+        addFTVBtn.addEventListener('click', () => {
+          this.showFTVCheckInModalForClass(classId);
+        });
+      }
+
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          this.filterClassBoardChildren(e.target.value);
+        });
+      }
+    }, 0);
+
+    await this.loadClassBoardChildren(classId, className, classType);
+  },
+
+  async loadClassBoardChildren(classId, className, classType) {
+    const container = document.getElementById('classBoardChildren');
+    const statsContainer = document.getElementById('classBoardStats');
+    
+    try {
+      // Get all children assigned to this class
+      const result = await Utils.apiRequest(`/api/classes/${classId}/children`);
+      
+      if (!result.success) {
+        container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #ef4444;">Failed to load children</div>';
+        return;
+      }
+
+      const children = result.data || [];
+      this.currentClassBoardChildren = children;
+
+      // Get today's check-ins for this class
+      const today = new Date().toISOString().split('T')[0];
+      const checkinsResult = await Utils.apiRequest(`/api/checkins?date=${today}&classId=${classId}`);
+      const checkIns = checkinsResult.success ? checkinsResult.data : [];
+      
+      // Create lookup map for checked-in children
+      const checkedInMap = {};
+      checkIns.forEach(ci => {
+        checkedInMap[ci.child_id] = ci;
+      });
+
+      // Calculate stats
+      const totalChildren = children.length;
+      const checkedInCount = checkIns.length;
+      const notCheckedInCount = totalChildren - checkedInCount;
+      const specialNeedsCount = children.filter(c => c.special_needs).length;
+
+      // Display stats
+      if (statsContainer) {
+        statsContainer.innerHTML = `
+          <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Total Children</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #111827;">${totalChildren}</div>
+          </div>
+          <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Checked In Today</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #10b981;">${checkedInCount}</div>
+          </div>
+          <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Not Checked In</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #6b7280;">${notCheckedInCount}</div>
+          </div>
+          <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Special Needs</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #8b5cf6;">${specialNeedsCount}</div>
+          </div>
+        `;
+      }
+
+      if (children.length === 0) {
+        container.innerHTML = `
+          <div style="padding: 3rem; text-align: center;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #9ca3af;">
+              <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p style="color: #6b7280; font-weight: 600;">No children assigned to this class</p>
+            <p style="color: #9ca3af; font-size: 0.9rem;">Children need to be assigned in the Manage Children tab</p>
+          </div>
+        `;
+        return;
+      }
+
+      this.renderClassBoardTable(children, checkedInMap, classId);
+    } catch (error) {
+      container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #ef4444;">Error loading children</div>';
+    }
+  },
+
+  renderClassBoardTable(children, checkedInMap, classId) {
+    const container = document.getElementById('classBoardChildren');
+    
+    container.innerHTML = `
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.9rem;">Child Name</th>
+            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.9rem;">Age</th>
+            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.9rem;">Allergies</th>
+            <th style="padding: 1rem; text-align: center; font-weight: 600; color: #374151; font-size: 0.9rem;">Status</th>
+            <th style="padding: 1rem; text-align: center; font-weight: 600; color: #374151; font-size: 0.9rem;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${children.map(child => {
+            const age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+            const isCheckedIn = checkedInMap[child.id];
+            const statusColor = isCheckedIn ? '#10b981' : '#6b7280';
+            const statusText = isCheckedIn ? 'Checked In' : 'Not Checked In';
+            
+            return `
+              <tr class="class-board-child-row" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}" style="border-bottom: 1px solid #f3f4f6;">
+                <td style="padding: 1rem;">
+                  <div style="font-weight: 600; color: #111827;">${child.first_name} ${child.last_name}</div>
+                  ${child.special_needs ? '<div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 0.25rem;">⭐ Special Needs</div>' : ''}
+                </td>
+                <td style="padding: 1rem; color: #6b7280;">${age} years</td>
+                <td style="padding: 1rem;">
+                  ${child.allergies 
+                    ? `<span style="color: #dc2626; font-weight: 500;">⚠️ ${child.allergies}</span>`
+                    : `<span style="color: #9ca3af;">None</span>`
+                  }
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                  <span style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; color: white; background: ${statusColor};">
+                    ${statusText}
+                  </span>
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                  ${!isCheckedIn 
+                    ? `<button class="btn-primary class-board-checkin-btn" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Check In</button>`
+                    : `<button class="btn-secondary" disabled style="padding: 0.5rem 1rem; font-size: 0.9rem; opacity: 0.6; cursor: not-allowed;">Checked In</button>`
+                  }
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+
+    // Attach click handlers to check-in buttons
+    setTimeout(() => {
+      document.querySelectorAll('.class-board-checkin-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const childId = e.target.dataset.childId;
+          const childName = e.target.dataset.childName;
+          await this.performClassBoardCheckIn(childId, childName, classId);
+        });
+      });
+    }, 0);
+  },
+
+  async performClassBoardCheckIn(childId, childName, classId) {
+    const confirmed = confirm(`Check in ${childName}?`);
+    if (!confirmed) return;
+
+    try {
+      Utils.showToast('Checking in...', 'info');
+
+      const result = await Utils.apiRequest('/api/checkins', {
+        method: 'POST',
+        body: { childId, classId }
+      });
+
+      if (result.success) {
+        Utils.showToast(`${childName} checked in successfully!`, 'success');
+        // Reload the class board
+        await this.loadClassBoardChildren(classId, this.selectedClassroom.name, this.selectedClassroom.type);
+      } else {
+        Utils.showToast(result.error || 'Check-in failed', 'error');
+      }
+    } catch (error) {
+      Utils.showToast('Check-in failed', 'error');
+    }
+  },
+
+  filterClassBoardChildren(query) {
+    const rows = document.querySelectorAll('.class-board-child-row');
+    const lowerQuery = query.toLowerCase();
+
+    rows.forEach(row => {
+      const childName = row.dataset.childName.toLowerCase();
+      if (childName.includes(lowerQuery)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  },
+
+  // Keep old method for reference but route to new flow
+  showOldClassroomOptions(classId, className, classType) {
+    // Store selected classroom context
+    this.selectedClassroom = { id: classId, name: className, type: classType };
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -1314,9 +1592,21 @@ const DashboardNav = {
     try {
       Utils.showToast('Checking in...', 'info');
 
+      // Get parent ID for this child
+      const parentResult = await Utils.apiRequest(`/api/children/${childId}/parents`);
+      let parentId = null;
+      
+      if (parentResult.success && parentResult.data && parentResult.data.length > 0) {
+        const primaryParent = parentResult.data.find(p => p.is_primary_contact) || parentResult.data[0];
+        parentId = primaryParent.parent_id;
+      } else {
+        Utils.showToast('This child has no linked parent. Please add a parent first.', 'error');
+        return;
+      }
+
       const result = await Utils.apiRequest('/api/checkins', {
         method: 'POST',
-        body: { childId, classId }
+        body: { child_id: childId, parent_id: parentId, class_attended: classId }
       });
 
       if (result.success) {
@@ -1499,8 +1789,9 @@ const DashboardNav = {
       const checkInResult = await Utils.apiRequest('/api/checkins', {
         method: 'POST',
         body: {
-          childId,
-          classId
+          child_id: childId,
+          parent_id: parentId,
+          class_attended: classId
         }
       });
 
@@ -2316,8 +2607,9 @@ const DashboardNav = {
       const checkInResult = await Utils.apiRequest('/api/checkins', {
         method: 'POST',
         body: {
-          childId,
-          classId
+          child_id: childId,
+          parent_id: parentId,
+          class_attended: classId
         }
       });
 
@@ -3448,7 +3740,18 @@ const DashboardNav = {
     }, 0);
   },
 
-  showChildRegistrationModal(autoOpenSpecialNeeds = false) {
+  async showChildRegistrationModal(autoOpenSpecialNeeds = false) {
+    // Load classes first
+    const classesResult = await Utils.apiRequest('/api/classes');
+    let classes = [];
+    if (classesResult.success) {
+      if (Array.isArray(classesResult.data)) {
+        classes = classesResult.data;
+      } else if (classesResult.data && Array.isArray(classesResult.data.data)) {
+        classes = classesResult.data.data;
+      }
+    }
+
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -3483,6 +3786,16 @@ const DashboardNav = {
                 <option value="other">Other</option>
               </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>Assign to Class</label>
+            <select id="childClassAssignment">
+              <option value="">Select a class (optional)...</option>
+              ${classes.map(cls => `
+                <option value="${cls.id}">${cls.name}${cls.type === 'special' ? ' (Special Needs)' : cls.type === 'ftv' ? ' (FTV)' : ''}</option>
+              `).join('')}
+            </select>
           </div>
 
           <div class="form-group">
@@ -3617,6 +3930,7 @@ const DashboardNav = {
 
     if (result.success) {
       const childId = result.data.id;
+      const classId = document.getElementById('childClassAssignment')?.value;
       
       // If special needs data was collected, submit it separately
       if (specialNeedsData && childId) {
@@ -3628,13 +3942,34 @@ const DashboardNav = {
         
         if (!specialNeedsResult.success) {
           console.warn('Child registered but special needs form submission failed:', specialNeedsResult.error);
-          Utils.showToast('Child registered, but special needs form had an issue. Please update it from the child\'s profile.', 'warning');
+        }
+      }
+
+      // If a class was selected, assign the child to it
+      if (classId && childId) {
+        const assignResult = await Utils.apiRequest('/api/classes/assign', {
+          method: 'POST',
+          body: { classId, childId }
+        });
+        
+        if (!assignResult.success) {
+          console.warn('Child registered but class assignment failed:', assignResult.error);
+          Utils.showToast('Child registered successfully, but class assignment failed. You can assign them later.', 'warning');
         } else {
-          Utils.showToast('Child and special needs information registered successfully!', 'success');
+          if (specialNeedsData) {
+            Utils.showToast('Child, special needs info, and class assignment completed successfully!', 'success');
+          } else {
+            Utils.showToast('Child registered and assigned to class successfully!', 'success');
+          }
         }
       } else {
-        Utils.showToast('Child registered successfully!', 'success');
+        if (specialNeedsData) {
+          Utils.showToast('Child and special needs information registered successfully!', 'success');
+        } else {
+          Utils.showToast('Child registered successfully!', 'success');
+        }
       }
+
       document.querySelector('.modal-overlay').remove();
       this.loadCheckinView(document.getElementById('dashboardContent'));
     } else {
@@ -4854,12 +5189,20 @@ const DashboardNav = {
             <h2 style="margin: 0 0 0.25rem 0;">Child Management</h2>
             <p style="margin: 0; color: #6b7280; font-size: 0.9rem;">View, search, and manage all registered children</p>
           </div>
-          <button class="btn-primary" id="addNewChildBtn">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
-              <path d="M8 3.33334V12.6667M3.33334 8H12.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            Add New Child
-          </button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-secondary" id="importDataBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M14 10v2.667A1.333 1.333 0 0112.667 14H3.333A1.333 1.333 0 012 12.667V10M11.3333 5.33333L8 2M8 2L4.66667 5.33333M8 2V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Import Data
+            </button>
+            <button class="btn-primary" id="addNewChildBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M8 3.33334V12.6667M3.33334 8H12.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Add New Child
+            </button>
+          </div>
         </div>
 
         <div class="management-filters" style="background: #f9fafb; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
@@ -4916,10 +5259,15 @@ const DashboardNav = {
 
     // Setup event listeners
     setTimeout(() => {
+      const importDataBtn = document.getElementById('importDataBtn');
       const addNewChildBtn = document.getElementById('addNewChildBtn');
       const searchBox = document.getElementById('childSearchBox');
       const archivedCheckbox = document.getElementById('showArchived');
       const inactivityFilter = document.getElementById('inactivityFilter');
+
+      if (importDataBtn) {
+        importDataBtn.addEventListener('click', () => this.showImportDataModal());
+      }
 
       if (addNewChildBtn) {
         addNewChildBtn.addEventListener('click', () => this.showChildRegistrationModal());
@@ -5188,6 +5536,12 @@ const DashboardNav = {
                     </td>
                     <td style="padding: 1rem; text-align: right;">
                       <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <button class="btn-icon assign-class-btn" title="Assign to Class" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M14 5.33334H10.6667C10.1362 5.33334 9.62753 5.54405 9.25246 5.91913C8.87738 6.2942 8.66667 6.80291 8.66667 7.33334V14C8.66667 13.2928 8.94762 12.6145 9.4477 12.1144C9.94781 11.6143 10.6261 11.3333 11.3333 11.3333H14V5.33334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 1.33334H5.33333C5.86377 1.33334 6.37247 1.54405 6.74755 1.91913C7.12262 2.2942 7.33333 2.80291 7.33333 3.33334V14C7.33333 13.2928 7.05238 12.6145 6.5523 12.1144C6.05219 11.6143 5.37391 11.3333 4.66667 11.3333H2V1.33334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </button>
                         <button class="btn-icon manage-parents-btn" title="Manage Parents" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}">
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M10.6667 14V12.6667C10.6667 11.9594 10.3857 11.2811 9.88562 10.781C9.38552 10.281 8.70725 10 8 10H3.33333C2.62609 10 1.94781 10.281 1.44772 10.781C0.947633 11.2811 0.666666 11.9594 0.666666 12.6667V14M13.3333 5.33333V9.33333M15.3333 7.33333H11.3333M8.16667 4.66667C8.16667 6.13943 6.97276 7.33333 5.5 7.33333C4.02724 7.33333 2.83333 6.13943 2.83333 4.66667C2.83333 3.19391 4.02724 2 5.5 2C6.97276 2 8.16667 3.19391 8.16667 4.66667Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -5247,12 +5601,21 @@ const DashboardNav = {
   },
 
   attachChildManagementActions() {
+    const assignClassBtns = document.querySelectorAll('.assign-class-btn');
     const archiveBtns = document.querySelectorAll('.archive-btn');
     const unarchiveBtns = document.querySelectorAll('.unarchive-btn');
     const deleteBtns = document.querySelectorAll('.delete-btn');
     const infoBtns = document.querySelectorAll('.info-btn');
     const editBtns = document.querySelectorAll('.child-edit-btn');
     const manageParentsBtns = document.querySelectorAll('.manage-parents-btn');
+
+    assignClassBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const childId = btn.dataset.childId;
+        const childName = btn.dataset.childName;
+        this.showAssignClassModal(childId, childName);
+      });
+    });
 
     archiveBtns.forEach(btn => {
       btn.addEventListener('click', () => this.archiveChild(btn.dataset.id));
@@ -5326,6 +5689,120 @@ const DashboardNav = {
 
     // Load parents for all children
     this.loadParentsForChildren();
+  },
+
+  async showAssignClassModal(childId, childName) {
+    // Load classes first
+    const classesResult = await Utils.apiRequest('/api/classes');
+    
+    if (!classesResult.success) {
+      Utils.showToast('Failed to load classes', 'error');
+      return;
+    }
+
+    // Handle different response formats
+    let classes = [];
+    if (Array.isArray(classesResult.data)) {
+      classes = classesResult.data;
+    } else if (classesResult.data && Array.isArray(classesResult.data.data)) {
+      classes = classesResult.data.data;
+    }
+
+    console.log('[Assign Class] Classes loaded:', classes);
+
+    if (classes.length === 0) {
+      Utils.showToast('No classes available. Please create a class first.', 'error');
+      return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <h2>Assign Child to Class</h2>
+          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        
+        <div style="padding: 1.5rem;">
+          <div style="background: #f0fdfa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border: 2px solid #14b8a6;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="color: #0f766e;">
+                <path d="M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 14C8.13401 14 5 17.134 5 21H19C19 17.134 15.866 14 12 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <div>
+                <div style="font-weight: 600; color: #0f766e; font-size: 1.1rem;">${childName}</div>
+                <div style="font-size: 0.85rem; color: #14b8a6;">Select a class to assign this child to</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="assignClassSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+              Select Class <span style="color: #ef4444;">*</span>
+            </label>
+            <select id="assignClassSelect" class="form-control" style="width: 100%; padding: 0.75rem 1rem; font-size: 1rem;">
+              <option value="">Choose a class...</option>
+              ${classes.map(cls => `
+                <option value="${cls.id}">${cls.name}${cls.type === 'special' ? ' (Special Needs)' : cls.type === 'ftv' ? ' (FTV)' : ''}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+            <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()" style="flex: 1;">
+              Cancel
+            </button>
+            <button id="confirmAssignBtn" class="btn-primary" style="flex: 1;">
+              Assign to Class
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Handle assign button click
+    setTimeout(() => {
+      const confirmBtn = document.getElementById('confirmAssignBtn');
+      const classSelect = document.getElementById('assignClassSelect');
+
+      if (confirmBtn && classSelect) {
+        confirmBtn.addEventListener('click', async () => {
+          const classId = classSelect.value;
+          
+          if (!classId) {
+            Utils.showToast('Please select a class', 'error');
+            return;
+          }
+
+          const selectedClass = classes.find(c => c.id === classId);
+          const confirmed = confirm(`Assign ${childName} to ${selectedClass?.name}?`);
+          
+          if (!confirmed) return;
+
+          Utils.showToast('Assigning child to class...', 'info');
+
+          try {
+            const result = await Utils.apiRequest('/api/classes/assign', {
+              method: 'POST',
+              body: { classId, childId }
+            });
+
+            if (result.success) {
+              Utils.showToast(`${childName} assigned to ${selectedClass?.name} successfully!`, 'success');
+              modal.remove();
+            } else {
+              Utils.showToast(result.error || 'Failed to assign child to class', 'error');
+            }
+          } catch (error) {
+            Utils.showToast('Failed to assign child to class', 'error');
+          }
+        });
+      }
+    }, 0);
   },
 
   async archiveChild(childId) {
@@ -5418,6 +5895,523 @@ const DashboardNav = {
     } else {
       Utils.showToast(`Failed to unarchive child: ${result.error}`, 'error');
     }
+  },
+
+  showImportDataModal(classId = null, className = null) {
+    const isClassImport = classId !== null;
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>Import Data ${isClassImport ? `to ${className}` : 'from Monday.com'}</h2>
+          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        
+        <div style="padding: 1.5rem;">
+          <div style="background: #f0f9ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; gap: 1rem;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; color: #3b82f6;">
+                <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <div style="flex: 1;">
+                <h3 style="margin: 0 0 0.5rem 0; color: #1e40af; font-size: 1rem;">CSV/XLSX Format Requirements</h3>
+                <p style="margin: 0 0 0.5rem 0; color: #1e40af; font-size: 0.9rem;">Your file should include these columns:</p>
+                <ul style="margin: 0; padding-left: 1.5rem; color: #1e40af; font-size: 0.85rem;">
+                  <li><strong>First Name</strong> (required)</li>
+                  <li><strong>Last Name</strong> (required)</li>
+                  <li><strong>Date of Birth</strong> (format: YYYY-MM-DD or MM/DD/YYYY)</li>
+                  <li><strong>Gender</strong> (optional: Male, Female, Other)</li>
+                  <li><strong>Parent Name</strong> (optional)</li>
+                  <li><strong>Parent Email</strong> (optional)</li>
+                  <li><strong>Parent Phone</strong> (optional)</li>
+                  <li><strong>Allergies</strong> (optional)</li>
+                  <li><strong>Medical Notes</strong> (optional)</li>
+                  ${!isClassImport ? '<li><strong>Class Name</strong> (optional - must match existing class)</li>' : ''}
+                </ul>
+                <p style="margin: 0.75rem 0 0 0; color: #1e40af; font-size: 0.85rem;"><em>Column names are case-insensitive. Extra columns will be ignored.</em></p>
+                ${isClassImport ? `<p style="margin: 0.5rem 0 0 0; color: #1e40af; font-size: 0.85rem; font-weight: 600;">All children will be automatically assigned to ${className}.</p>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+              Select CSV or XLSX File <span style="color: #ef4444;">*</span>
+            </label>
+            <input 
+              type="file" 
+              id="importCsvFile" 
+              accept=".csv,.xlsx,.xls"
+              style="display: block; width: 100%; padding: 0.75rem; border: 2px dashed #d1d5db; border-radius: 8px; background: #f9fafb; cursor: pointer;"
+            >
+          </div>
+
+          <div id="importPreview" style="display: none; margin-top: 1rem; padding: 1rem; background: #f9fafb; border-radius: 8px; max-height: 300px; overflow-y: auto;">
+            <h4 style="margin: 0 0 0.75rem 0; color: #374151;">Preview (First 5 rows)</h4>
+            <div id="importPreviewContent"></div>
+          </div>
+
+          <div id="importProgress" style="display: none; margin-top: 1rem;">
+            <div style="background: #f0fdfa; border: 2px solid #14b8a6; border-radius: 8px; padding: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                <div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div>
+                <span style="font-weight: 600; color: #0f766e;">Importing data...</span>
+              </div>
+              <div id="importProgressText" style="color: #14b8a6; font-size: 0.9rem;"></div>
+            </div>
+          </div>
+
+          <div id="importResults" style="display: none; margin-top: 1rem;"></div>
+
+          <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+            <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()" style="flex: 1;">
+              Cancel
+            </button>
+            <button id="startImportBtn" class="btn-primary" style="flex: 1;" disabled>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M14 10v2.667A1.333 1.333 0 0112.667 14H3.333A1.333 1.333 0 012 12.667V10M11.3333 5.33333L8 2M8 2L4.66667 5.33333M8 2V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Start Import
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // File input handler
+    setTimeout(() => {
+      const fileInput = document.getElementById('importCsvFile');
+      const startBtn = document.getElementById('startImportBtn');
+      const previewDiv = document.getElementById('importPreview');
+      const previewContent = document.getElementById('importPreviewContent');
+
+      let parsedData = null;
+
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+          // Check file type and parse accordingly
+          if (file.name.endsWith('.csv')) {
+            const text = await file.text();
+            parsedData = this.parseCSV(text);
+          } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+            parsedData = await this.parseXLSX(file);
+          } else {
+            Utils.showToast('Unsupported file format. Please use CSV or XLSX.', 'error');
+            startBtn.disabled = true;
+            previewDiv.style.display = 'none';
+            return;
+          }
+
+          if (parsedData.length === 0) {
+            Utils.showToast('File is empty or invalid', 'error');
+            startBtn.disabled = true;
+            previewDiv.style.display = 'none';
+            return;
+          }
+
+          console.log('[Import] Parsed data sample:', parsedData[0]);
+          console.log('[Import] Detected columns:', Object.keys(parsedData[0]));
+
+          // Show preview
+          const preview = parsedData.slice(0, 5);
+          previewContent.innerHTML = `
+            <div style="overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <thead>
+                  <tr style="background: #e5e7eb;">
+                    ${Object.keys(preview[0]).map(key => 
+                      `<th style="padding: 0.5rem; text-align: left; border: 1px solid #d1d5db;">${key}</th>`
+                    ).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${preview.map(row => `
+                    <tr>
+                      ${Object.values(row).map(val => 
+                        `<td style="padding: 0.5rem; border: 1px solid #d1d5db;">${val || '<em style="color: #9ca3af;">empty</em>'}</td>`
+                      ).join('')}
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            <p style="margin-top: 0.75rem; color: #6b7280; font-size: 0.9rem;">
+              <strong>${parsedData.length}</strong> rows detected (excluding header)
+            </p>
+          `;
+          previewDiv.style.display = 'block';
+          startBtn.disabled = false;
+        } catch (error) {
+          Utils.showToast('Error reading file: ' + error.message, 'error');
+          startBtn.disabled = true;
+          previewDiv.style.display = 'none';
+        }
+      });
+
+      startBtn.addEventListener('click', async () => {
+        if (!parsedData) return;
+        await this.processImport(parsedData, modal, classId);
+      });
+    }, 0);
+  },
+
+  async parseXLSX(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { 
+            type: 'array',
+            cellDates: true,
+            cellNF: false,
+            cellText: false
+          });
+          
+          // Get first sheet
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          
+          console.log('[XLSX] Sheet name:', firstSheetName);
+          console.log('[XLSX] Sheet range:', worksheet['!ref']);
+          
+          // Convert to JSON with defval to handle empty cells
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+            defval: '',
+            raw: false,
+            dateNF: 'yyyy-mm-dd'
+          });
+          
+          console.log('[XLSX] Parsed rows:', jsonData.length);
+          console.log('[XLSX] First row keys:', jsonData.length > 0 ? Object.keys(jsonData[0]) : 'No data');
+          console.log('[XLSX] First row sample:', jsonData[0]);
+          
+          resolve(jsonData);
+        } catch (error) {
+          console.error('[XLSX] Parse error:', error);
+          reject(error);
+        }
+      };
+      
+      reader.onerror = (error) => reject(error);
+      reader.readAsArrayBuffer(file);
+    });
+  },
+
+  parseCSV(text) {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const rows = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = this.parseCSVLine(lines[i]);
+      if (values.length === 0) continue;
+
+      const row = {};
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+      rows.push(row);
+    }
+
+    return rows;
+  },
+
+  parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current.trim());
+    return result;
+  },
+
+  async processImport(data, modal, targetClassId = null) {
+    const startBtn = document.getElementById('startImportBtn');
+    const progressDiv = document.getElementById('importProgress');
+    const progressText = document.getElementById('importProgressText');
+    const resultsDiv = document.getElementById('importResults');
+    const previewDiv = document.getElementById('importPreview');
+
+    startBtn.disabled = true;
+    previewDiv.style.display = 'none';
+    progressDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+
+    // Load all existing classes (only if not importing to a specific class)
+    let classMap = {};
+    if (!targetClassId) {
+      const classesResult = await Utils.apiRequest('/api/classes');
+      let classes = [];
+      if (classesResult.success) {
+        if (Array.isArray(classesResult.data)) {
+          classes = classesResult.data;
+        } else if (classesResult.data && Array.isArray(classesResult.data.data)) {
+          classes = classesResult.data.data;
+        }
+      }
+
+      classes.forEach(cls => {
+        classMap[cls.name.toLowerCase()] = cls.id;
+      });
+    }
+
+    const results = {
+      total: data.length,
+      childrenCreated: 0,
+      childrenFailed: 0,
+      parentsCreated: 0,
+      parentsFailed: 0,
+      assignmentsCreated: 0,
+      assignmentsFailed: 0,
+      errors: []
+    };
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      progressText.textContent = `Processing row ${i + 1} of ${data.length}...`;
+
+      try {
+        // Normalize column names (case-insensitive)
+        const normalizedRow = {};
+        Object.keys(row).forEach(key => {
+          const normalizedKey = key.toLowerCase().trim().replace(/\s+/g, ' ');
+          normalizedRow[normalizedKey] = row[key];
+        });
+
+        // Extract child data with multiple possible column name variations
+        const firstName = normalizedRow['first name'] || 
+                         normalizedRow['firstname'] || 
+                         normalizedRow['first'] ||
+                         normalizedRow['name'] ||
+                         normalizedRow['child name'] ||
+                         normalizedRow['childname'] || '';
+        
+        const lastName = normalizedRow['last name'] || 
+                        normalizedRow['lastname'] || 
+                        normalizedRow['last'] ||
+                        normalizedRow['surname'] || '';
+        
+        if (!firstName || !lastName) {
+          results.childrenFailed++;
+          results.errors.push(`Row ${i + 1}: Missing first name or last name (found: "${firstName}" "${lastName}")`);
+          console.error(`Row ${i + 1} data:`, normalizedRow);
+          continue;
+        }
+
+        // Parse date of birth with multiple variations
+        let dob = normalizedRow['date of birth'] || 
+                  normalizedRow['dob'] || 
+                  normalizedRow['birthdate'] || 
+                  normalizedRow['birth date'] ||
+                  normalizedRow['birthday'] || '';
+        
+        if (dob) {
+          // Handle various date formats
+          if (typeof dob === 'number') {
+            // Excel date serial number
+            const excelEpoch = new Date(1899, 11, 30);
+            const date = new Date(excelEpoch.getTime() + dob * 86400000);
+            dob = date.toISOString().split('T')[0];
+          } else if (typeof dob === 'string') {
+            // Convert MM/DD/YYYY to YYYY-MM-DD
+            if (dob.includes('/')) {
+              const parts = dob.split('/');
+              if (parts.length === 3) {
+                const month = parts[0].padStart(2, '0');
+                const day = parts[1].padStart(2, '0');
+                const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+                dob = `${year}-${month}-${day}`;
+              }
+            } else if (dob.includes('-')) {
+              // Already in YYYY-MM-DD or similar format
+              const parts = dob.split('-');
+              if (parts.length === 3 && parts[0].length === 2) {
+                // DD-MM-YYYY format
+                dob = `${parts[2]}-${parts[1]}-${parts[0]}`;
+              }
+            }
+          }
+        }
+
+        const childData = {
+          first_name: String(firstName).trim(),
+          last_name: String(lastName).trim(),
+          date_of_birth: dob || null,
+          gender: normalizedRow['gender'] || normalizedRow['sex'] || null,
+          allergies: normalizedRow['allergies'] || normalizedRow['allergy'] || null,
+          medical_notes: normalizedRow['medical notes'] || 
+                        normalizedRow['medicalnotes'] || 
+                        normalizedRow['medical'] ||
+                        normalizedRow['notes'] || null,
+          special_needs: false
+        };
+
+        console.log(`Creating child ${i + 1}:`, childData);
+
+        // Create child
+        const childResult = await Utils.apiRequest('/api/children', {
+          method: 'POST',
+          body: JSON.stringify(childData)
+        });
+
+        if (!childResult.success) {
+          results.childrenFailed++;
+          results.errors.push(`Row ${i + 1}: Failed to create ${firstName} ${lastName} - ${childResult.error}`);
+          console.error(`Failed to create child:`, childResult);
+          continue;
+        }
+
+        results.childrenCreated++;
+        const childId = childResult.data.id;
+
+        // Create parent if provided with multiple column name variations
+        const parentName = normalizedRow['parent name'] || 
+                          normalizedRow['parentname'] || 
+                          normalizedRow['parent'] ||
+                          normalizedRow['guardian name'] ||
+                          normalizedRow['guardianname'] || '';
+        
+        const parentEmail = normalizedRow['parent email'] || 
+                           normalizedRow['parentemail'] || 
+                           normalizedRow['email'] ||
+                           normalizedRow['parent e-mail'] || '';
+        
+        const parentPhone = normalizedRow['parent phone'] || 
+                           normalizedRow['parentphone'] || 
+                           normalizedRow['phone'] ||
+                           normalizedRow['contact number'] ||
+                           normalizedRow['mobile'] || '';
+
+        if (parentName || parentEmail) {
+          const parentData = {
+            first_name: parentName.split(' ')[0] || 'Parent',
+            last_name: parentName.split(' ').slice(1).join(' ') || lastName,
+            email: parentEmail || null,
+            phone: parentPhone || null
+          };
+
+          const parentResult = await Utils.apiRequest('/api/parents', {
+            method: 'POST',
+            body: parentData
+          });
+
+          if (parentResult.success) {
+            results.parentsCreated++;
+            const parentId = parentResult.data.id;
+
+            // Link parent to child
+            await Utils.apiRequest('/api/relationships', {
+              method: 'POST',
+              body: JSON.stringify({ parentId, childId, relationship: 'parent' })
+            });
+          } else {
+            results.parentsFailed++;
+          }
+        }
+
+        // Assign to class
+        let assignClassId = targetClassId;
+        
+        // If no target class specified, check for class name in CSV with multiple variations
+        if (!assignClassId) {
+          const className = normalizedRow['class name'] || 
+                           normalizedRow['classname'] || 
+                           normalizedRow['class'] ||
+                           normalizedRow['classroom'] ||
+                           normalizedRow['room'] || '';
+          if (className) {
+            assignClassId = classMap[className.toLowerCase()];
+            if (!assignClassId) {
+              results.assignmentsFailed++;
+              results.errors.push(`Row ${i + 1}: Class "${className}" not found`);
+            }
+          }
+        }
+
+        // Perform class assignment if we have a class ID
+        if (assignClassId) {
+          const assignResult = await Utils.apiRequest('/api/classes/assign', {
+            method: 'POST',
+            body: { classId: assignClassId, childId }
+          });
+
+          if (assignResult.success) {
+            results.assignmentsCreated++;
+          } else {
+            results.assignmentsFailed++;
+          }
+        }
+      } catch (error) {
+        results.childrenFailed++;
+        results.errors.push(`Row ${i + 1}: ${error.message}`);
+      }
+    }
+
+    // Show results
+    progressDiv.style.display = 'none';
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = `
+      <div style="background: ${results.childrenFailed === 0 ? '#f0fdf4' : '#fef3c7'}; border: 2px solid ${results.childrenFailed === 0 ? '#10b981' : '#f59e0b'}; border-radius: 8px; padding: 1.5rem;">
+        <h3 style="margin: 0 0 1rem 0; color: ${results.childrenFailed === 0 ? '#065f46' : '#92400e'};">Import Complete</h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Children Created</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #10b981;">${results.childrenCreated}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Children Failed</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #ef4444;">${results.childrenFailed}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Parents Created</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #10b981;">${results.parentsCreated}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.25rem;">Class Assignments</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #10b981;">${results.assignmentsCreated}</div>
+          </div>
+        </div>
+
+        ${results.errors.length > 0 ? `
+          <details style="margin-top: 1rem;">
+            <summary style="cursor: pointer; font-weight: 600; color: #ef4444; margin-bottom: 0.5rem;">
+              View ${results.errors.length} Error(s)
+            </summary>
+            <div style="max-height: 200px; overflow-y: auto; background: white; padding: 0.75rem; border-radius: 4px; font-size: 0.85rem;">
+              ${results.errors.map(err => `<div style="color: #991b1b; margin-bottom: 0.25rem;">• ${err}</div>`).join('')}
+            </div>
+          </details>
+        ` : ''}
+
+        <button class="btn-primary" onclick="this.closest('.modal-overlay').remove(); ${targetClassId ? `DashboardNav.loadClassBoardChildren('${targetClassId}', DashboardNav.selectedClassroom.name, DashboardNav.selectedClassroom.type)` : 'DashboardNav.loadChildrenTable()'};" style="width: 100%; margin-top: 1rem;">
+          Close & Refresh
+        </button>
+      </div>
+    `;
   },
 
   async deleteChild(childId) {
