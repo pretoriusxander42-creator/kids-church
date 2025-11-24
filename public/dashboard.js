@@ -6,6 +6,10 @@ const DashboardNav = {
     this.bindEvents();
     this.loadDashboardStats();
     this.startAutoRefresh();
+    // Load overview by default
+    setTimeout(() => {
+      this.switchView('overview');
+    }, 100);
   },
 
   createNavigation() {
@@ -40,22 +44,60 @@ const DashboardNav = {
   },
 
   switchView(view) {
+    console.log('[DashboardNav] switchView called with:', view);
+    
     // Update active tab
     document.querySelectorAll('.nav-tab').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.view === view);
     });
 
-    // Stop auto-refresh when leaving overview
-    if (view !== 'overview') {
-      this.stopAutoRefresh();
-    } else {
+    // Get references to dashboard elements
+    const welcomeBanner = document.querySelector('.welcome-banner');
+    const statsGrid = document.querySelector('.stats-grid');
+    const content = document.getElementById('dashboardContent');
+    
+    console.log('[DashboardNav] Elements found:', {
+      welcomeBanner: !!welcomeBanner,
+      statsGrid: !!statsGrid,
+      content: !!content
+    });
+    
+    if (!content) {
+      console.error('[DashboardNav] dashboardContent not found');
+      return;
+    }
+
+    // Show/hide welcome banner and stats based on view
+    if (view === 'overview') {
+      console.log('[DashboardNav] Overview view - showing stats');
+      // Show stats on overview
+      if (welcomeBanner) {
+        welcomeBanner.style.display = 'block';
+        console.log('[DashboardNav] Welcome banner display set to block');
+      }
+      if (statsGrid) {
+        statsGrid.style.display = 'grid';
+        console.log('[DashboardNav] Stats grid display set to grid');
+      }
       this.startAutoRefresh();
+      // Refresh stats when returning to overview
+      this.loadDashboardStats();
+    } else {
+      console.log('[DashboardNav] Non-overview view - hiding stats');
+      // Hide stats on other views
+      if (welcomeBanner) {
+        welcomeBanner.style.display = 'none';
+        console.log('[DashboardNav] Welcome banner hidden');
+      }
+      if (statsGrid) {
+        statsGrid.style.display = 'none';
+        console.log('[DashboardNav] Stats grid hidden');
+      }
+      this.stopAutoRefresh();
     }
 
     // Load view content
-    const content = document.getElementById('dashboardContent');
-    if (!content) return;
-
+    console.log('[DashboardNav] Loading content for view:', view);
     switch(view) {
       case 'overview':
         this.loadOverview(content);
@@ -1050,48 +1092,429 @@ const DashboardNav = {
   loadCheckinView(content) {
     content.innerHTML = `
       <div class="checkin-section">
-        <div class="section-header">
-          <h2>Child Check-in</h2>
-          <button class="btn-secondary" id="addNewChildInCheckin">+ Add New Child</button>
-        </div>
-        <form id="checkinForm" class="form">
-          <div class="form-group">
-            <label>Search for Child</label>
-            <input type="text" id="childSearch" placeholder="Type child's name...">
-            <div id="childResults" class="search-results"></div>
+        <div class="section-header" style="margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="margin: 0 0 0.25rem 0;">Check-In System</h2>
+            <p style="margin: 0; color: #6b7280; font-size: 0.9rem;">Select a class to begin check-in</p>
           </div>
-          <div id="selectedChild" class="selected-child" style="display:none;">
-            <h3>Selected Child</h3>
-            <div id="childInfo"></div>
-            
-            <div class="form-group" style="margin-top: 1rem;">
-              <label>Assign to Class <span class="required">*</span></label>
-              <select id="classSelect" required>
-                <option value="">Loading classes...</option>
-              </select>
-              <div id="classCapacityInfo" style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;"></div>
+        </div>
+
+        <div id="classSelectionView">
+          <div class="form-group">
+            <label>Select Class for Today's Service <span class="required">*</span></label>
+            <select id="classSelect" style="font-size: 1.1rem; padding: 1rem;">
+              <option value="">Choose a class...</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="classCheckinView" style="display: none;">
+          <div class="checkin-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding: 1rem; background: #f0fdfa; border: 2px solid #14b8a6; border-radius: 8px;">
+            <div>
+              <h3 id="selectedClassName" style="margin: 0; color: #0f766e; font-size: 1.2rem;"></h3>
+              <p id="classChildrenCount" style="margin: 0.25rem 0 0 0; color: #6b7280; font-size: 0.9rem;"></p>
             </div>
+            <button class="btn-secondary" id="changeClassBtn">Change Class</button>
+          </div>
+
+          <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="form-group" style="flex: 1; margin: 0;">
+              <input type="text" id="childSearch" placeholder="Search children in this class..." style="width: 100%; font-size: 1rem;">
+            </div>
+            <button class="btn-primary" id="addFTVBtn" style="white-space: nowrap;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M8 3.33334V12.6667M3.33334 8H12.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Add FTV
+            </button>
+          </div>
+
+          <div id="classChildrenList" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+            <div style="padding: 2rem; text-align: center; color: #6b7280;">
+              Loading children...
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    this.loadClassesForCheckIn();
+    
+    // Setup event listeners
+    setTimeout(() => {
+      const classSelect = document.getElementById('classSelect');
+      const changeClassBtn = document.getElementById('changeClassBtn');
+      const addFTVBtn = document.getElementById('addFTVBtn');
+      const childSearch = document.getElementById('childSearch');
+
+      if (classSelect) {
+        classSelect.addEventListener('change', (e) => {
+          if (e.target.value) {
+            this.showClassCheckinView(e.target.value);
+          }
+        });
+      }
+
+      if (changeClassBtn) {
+        changeClassBtn.addEventListener('click', () => {
+          document.getElementById('classSelectionView').style.display = 'block';
+          document.getElementById('classCheckinView').style.display = 'none';
+          classSelect.value = '';
+        });
+      }
+
+      if (addFTVBtn) {
+        addFTVBtn.addEventListener('click', () => {
+          const classId = classSelect.value;
+          this.showFTVCheckInModalForClass(classId);
+        });
+      }
+
+      if (childSearch) {
+        childSearch.addEventListener('input', (e) => {
+          this.filterClassChildren(e.target.value);
+        });
+      }
+    }, 0);
+  },
+
+  async showClassCheckinView(classId) {
+    const classSelect = document.getElementById('classSelect');
+    const selectedOption = classSelect.options[classSelect.selectedIndex];
+    const className = selectedOption.text;
+
+    document.getElementById('classSelectionView').style.display = 'none';
+    document.getElementById('classCheckinView').style.display = 'block';
+    
+    document.getElementById('selectedClassName').textContent = className;
+    
+    await this.loadChildrenForClassCheckin(classId);
+  },
+
+  async loadChildrenForClassCheckin(classId) {
+    const container = document.getElementById('classChildrenList');
+    this.currentCheckinClassId = classId;
+    
+    container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #6b7280;">Loading children...</div>';
+
+    try {
+      // Get all children assigned to this class
+      const result = await Utils.apiRequest(`/api/classes/${classId}/children`);
+      
+      if (!result.success) {
+        container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #ef4444;">Failed to load children</div>';
+        return;
+      }
+
+      const children = result.data || [];
+      this.currentClassChildren = children;
+
+      document.getElementById('classChildrenCount').textContent = `${children.length} ${children.length === 1 ? 'child' : 'children'} assigned to this class`;
+
+      if (children.length === 0) {
+        container.innerHTML = `
+          <div style="padding: 3rem; text-align: center;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto 1rem; color: #9ca3af;">
+              <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p style="color: #6b7280; font-weight: 600;">No children assigned to this class</p>
+            <p style="color: #9ca3af; font-size: 0.9rem;">Children need to be assigned to classes in the Manage Children tab</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Get today's check-ins
+      const today = new Date().toISOString().split('T')[0];
+      const checkinsResult = await Utils.apiRequest(`/api/checkins?date=${today}&classId=${classId}`);
+      const checkIns = checkinsResult.success ? checkinsResult.data : [];
+      
+      // Create lookup map for checked-in children
+      const checkedInMap = {};
+      checkIns.forEach(ci => {
+        checkedInMap[ci.child_id] = ci;
+      });
+
+      this.renderClassChildrenList(children, checkedInMap);
+    } catch (error) {
+      container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #ef4444;">Error loading children</div>';
+    }
+  },
+
+  renderClassChildrenList(children, checkedInMap) {
+    const container = document.getElementById('classChildrenList');
+    
+    container.innerHTML = `
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.9rem;">Child Name</th>
+            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.9rem;">Age</th>
+            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.9rem;">Allergies</th>
+            <th style="padding: 1rem; text-align: center; font-weight: 600; color: #374151; font-size: 0.9rem;">Status</th>
+            <th style="padding: 1rem; text-align: center; font-weight: 600; color: #374151; font-size: 0.9rem;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${children.map(child => {
+            const age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+            const isCheckedIn = checkedInMap[child.id];
+            const statusColor = isCheckedIn ? '#10b981' : '#6b7280';
+            const statusText = isCheckedIn ? 'Checked In' : 'Not Checked In';
             
-            <button type="submit" class="btn-primary">Check In</button>
+            return `
+              <tr class="child-row" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}" style="border-bottom: 1px solid #f3f4f6;">
+                <td style="padding: 1rem;">
+                  <div style="font-weight: 600; color: #111827;">${child.first_name} ${child.last_name}</div>
+                  ${child.special_needs ? '<div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 0.25rem;">⭐ Special Needs</div>' : ''}
+                </td>
+                <td style="padding: 1rem; color: #6b7280;">${age} years</td>
+                <td style="padding: 1rem;">
+                  ${child.allergies 
+                    ? `<span style="color: #dc2626; font-weight: 500;">⚠️ ${child.allergies}</span>`
+                    : `<span style="color: #9ca3af;">None</span>`
+                  }
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                  <span style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; color: white; background: ${statusColor};">
+                    ${statusText}
+                  </span>
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                  ${!isCheckedIn 
+                    ? `<button class="btn-primary checkin-btn" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Check In</button>`
+                    : `<button class="btn-secondary" disabled style="padding: 0.5rem 1rem; font-size: 0.9rem; opacity: 0.6; cursor: not-allowed;">Checked In</button>`
+                  }
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+
+    // Attach click handlers to check-in buttons
+    setTimeout(() => {
+      document.querySelectorAll('.checkin-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const childId = e.target.dataset.childId;
+          const childName = e.target.dataset.childName;
+          await this.performCheckIn(childId, childName);
+        });
+      });
+    }, 0);
+  },
+
+  async performCheckIn(childId, childName) {
+    const classId = this.currentCheckinClassId;
+    
+    const confirmed = confirm(`Check in ${childName}?`);
+    if (!confirmed) return;
+
+    try {
+      Utils.showToast('Checking in...', 'info');
+
+      const result = await Utils.apiRequest('/api/checkins', {
+        method: 'POST',
+        body: { childId, classId }
+      });
+
+      if (result.success) {
+        Utils.showToast(`${childName} checked in successfully!`, 'success');
+        // Reload the children list
+        await this.loadChildrenForClassCheckin(classId);
+      } else {
+        Utils.showToast(result.error || 'Check-in failed', 'error');
+      }
+    } catch (error) {
+      Utils.showToast('Check-in failed', 'error');
+    }
+  },
+
+  filterClassChildren(query) {
+    const rows = document.querySelectorAll('.child-row');
+    const lowerQuery = query.toLowerCase();
+
+    rows.forEach(row => {
+      const childName = row.dataset.childName.toLowerCase();
+      if (childName.includes(lowerQuery)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  },
+
+  async showFTVCheckInModalForClass(classId) {
+    // Similar to showFTVCheckInModal but pre-selects the class
+    const classesResult = await Utils.apiRequest('/api/classes');
+    const ftvClasses = classesResult.success 
+      ? classesResult.data.filter(cls => cls.type === 'ftv')
+      : [];
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>Check-In First Time Visitor</h2>
+          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        
+        <form id="ftvCheckInFormClass" class="form">
+          <div class="form-group">
+            <label>Child's First Name <span class="required">*</span></label>
+            <input type="text" id="ftvFirstNameClass" required>
+          </div>
+
+          <div class="form-group">
+            <label>Child's Last Name <span class="required">*</span></label>
+            <input type="text" id="ftvLastNameClass" required>
+          </div>
+
+          <div class="form-group">
+            <label>Date of Birth <span class="required">*</span></label>
+            <input type="date" id="ftvDOBClass" required>
+          </div>
+
+          <div class="form-group">
+            <label>Gender</label>
+            <select id="ftvGenderClass">
+              <option value="">Select gender...</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Parent/Guardian Name <span class="required">*</span></label>
+            <input type="text" id="ftvParentNameClass" required>
+          </div>
+
+          <div class="form-group">
+            <label>Parent Phone Number <span class="required">*</span></label>
+            <input type="tel" id="ftvParentPhoneClass" required>
+          </div>
+
+          <div class="form-group">
+            <label>Parent Email</label>
+            <input type="email" id="ftvParentEmailClass">
+          </div>
+
+          <div class="form-group">
+            <label>Allergies/Medical Notes</label>
+            <textarea id="ftvAllergiesClass" rows="3" placeholder="Any allergies or medical conditions we should know about..."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+            <button type="submit" class="btn-primary">Check-In FTV</button>
           </div>
         </form>
       </div>
     `;
-    
-    // Attach event listener to Add New Child button
-    setTimeout(() => {
-      const addNewChildBtn = document.getElementById('addNewChildInCheckin');
-      if (addNewChildBtn) {
-        addNewChildBtn.addEventListener('click', () => this.showChildRegistrationModal());
+
+    document.body.appendChild(modal);
+
+    // Handle form submission
+    document.getElementById('ftvCheckInFormClass').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.submitFTVCheckInForClass(classId);
+    });
+  },
+
+  async submitFTVCheckInForClass(classId) {
+    const firstName = document.getElementById('ftvFirstNameClass').value;
+    const lastName = document.getElementById('ftvLastNameClass').value;
+    const dob = document.getElementById('ftvDOBClass').value;
+    const gender = document.getElementById('ftvGenderClass').value;
+    const parentName = document.getElementById('ftvParentNameClass').value;
+    const parentPhone = document.getElementById('ftvParentPhoneClass').value;
+    const parentEmail = document.getElementById('ftvParentEmailClass').value;
+    const allergies = document.getElementById('ftvAllergiesClass').value;
+
+    Utils.showToast('Processing FTV check-in...', 'info');
+
+    try {
+      // 1. Create parent
+      const [parentFirstName, ...parentLastNameParts] = parentName.split(' ');
+      const parentLastName = parentLastNameParts.join(' ') || parentFirstName;
+
+      const parentResult = await Utils.apiRequest('/api/parents', {
+        method: 'POST',
+        body: {
+          first_name: parentFirstName,
+          last_name: parentLastName,
+          phone_number: parentPhone,
+          email: parentEmail || null
+        }
+      });
+
+      if (!parentResult.success) {
+        throw new Error(parentResult.error || 'Failed to create parent');
       }
-    }, 0);
-    
-    this.setupChildSearch();
-    
-    // Load classes after DOM is ready
-    setTimeout(() => {
-      this.loadClassesForCheckIn();
-    }, 100);
+
+      const parentId = parentResult.data.id;
+
+      // 2. Create child
+      const childResult = await Utils.apiRequest('/api/children', {
+        method: 'POST',
+        body: {
+          first_name: firstName,
+          last_name: lastName,
+          date_of_birth: dob,
+          gender: gender || null,
+          allergies: allergies || null,
+          is_ftv: true
+        }
+      });
+
+      if (!childResult.success) {
+        throw new Error(childResult.error || 'Failed to register child');
+      }
+
+      const childId = childResult.data.id;
+
+      // 3. Link parent to child
+      await Utils.apiRequest('/api/children/link-parent', {
+        method: 'POST',
+        body: {
+          childId,
+          parentId,
+          relationshipType: 'parent',
+          authorizedPickup: true
+        }
+      });
+
+      // 4. Assign to class
+      await Utils.apiRequest('/api/classes/assign', {
+        method: 'POST',
+        body: {
+          classId,
+          childId
+        }
+      });
+
+      // 5. Check-in the child
+      const checkInResult = await Utils.apiRequest('/api/checkins', {
+        method: 'POST',
+        body: {
+          childId,
+          classId
+        }
+      });
+
+      if (!checkInResult.success) {
+        throw new Error(checkInResult.error || 'Failed to check-in');
+      }
+
+      Utils.showToast('FTV checked in successfully!', 'success');
+      document.querySelector('.modal-overlay').remove();
+      // Reload the children list
+      await this.loadChildrenForClassCheckin(classId);
+    } catch (error) {
+      Utils.showToast(error.message || 'Failed to process FTV check-in', 'error');
+    }
   },
 
   setupChildSearch() {
@@ -1655,11 +2078,30 @@ const DashboardNav = {
   loadFTVBoard(content) {
     content.innerHTML = `
       <div class="ftv-board">
-        <h2>First Time Visitors (FTV) Board</h2>
-        <p class="subtitle">Children visiting for the first time today</p>
+        <div class="section-header" style="margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="margin: 0 0 0.25rem 0;">First Time Visitors (FTV) Board</h2>
+            <p class="subtitle" style="margin: 0; color: #6b7280; font-size: 0.9rem;">Children visiting for the first time today</p>
+          </div>
+          <button class="btn-primary" id="addFTVBtn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+              <path d="M8 3.33334V12.6667M3.33334 8H12.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Add FTV
+          </button>
+        </div>
         <div id="ftvList"></div>
       </div>
     `;
+    
+    // Add event listener for the Add FTV button
+    setTimeout(() => {
+      const addFTVBtn = document.getElementById('addFTVBtn');
+      if (addFTVBtn) {
+        addFTVBtn.addEventListener('click', () => this.showFTVCheckInModal());
+      }
+    }, 0);
+    
     this.loadFTVChildren();
   },
 
@@ -1711,23 +2153,210 @@ const DashboardNav = {
     }
   },
 
+  async showFTVCheckInModal() {
+    // Get FTV classes
+    const classesResult = await Utils.apiRequest('/api/classes');
+    const ftvClasses = classesResult.success 
+      ? classesResult.data.filter(cls => cls.type === 'ftv')
+      : [];
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <h2>Check-In First Time Visitor</h2>
+          <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        
+        <form id="ftvCheckInForm" class="form">
+          <div class="form-group">
+            <label>Child's First Name <span class="required">*</span></label>
+            <input type="text" id="ftvFirstName" required>
+          </div>
+
+          <div class="form-group">
+            <label>Child's Last Name <span class="required">*</span></label>
+            <input type="text" id="ftvLastName" required>
+          </div>
+
+          <div class="form-group">
+            <label>Date of Birth <span class="required">*</span></label>
+            <input type="date" id="ftvDOB" required>
+          </div>
+
+          <div class="form-group">
+            <label>Gender</label>
+            <select id="ftvGender">
+              <option value="">Select gender...</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>FTV Class <span class="required">*</span></label>
+            <select id="ftvClass" required>
+              <option value="">Select FTV class...</option>
+              ${ftvClasses.map(cls => `<option value="${cls.id}">${cls.name}</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Parent/Guardian Name <span class="required">*</span></label>
+            <input type="text" id="ftvParentName" required>
+          </div>
+
+          <div class="form-group">
+            <label>Parent Phone Number <span class="required">*</span></label>
+            <input type="tel" id="ftvParentPhone" required>
+          </div>
+
+          <div class="form-group">
+            <label>Parent Email</label>
+            <input type="email" id="ftvParentEmail">
+          </div>
+
+          <div class="form-group">
+            <label>Allergies/Medical Notes</label>
+            <textarea id="ftvAllergies" rows="3" placeholder="Any allergies or medical conditions we should know about..."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+            <button type="submit" class="btn-primary">Check-In FTV</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Handle form submission
+    document.getElementById('ftvCheckInForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.submitFTVCheckIn();
+    });
+  },
+
+  async submitFTVCheckIn() {
+    const firstName = document.getElementById('ftvFirstName').value;
+    const lastName = document.getElementById('ftvLastName').value;
+    const dob = document.getElementById('ftvDOB').value;
+    const gender = document.getElementById('ftvGender').value;
+    const classId = document.getElementById('ftvClass').value;
+    const parentName = document.getElementById('ftvParentName').value;
+    const parentPhone = document.getElementById('ftvParentPhone').value;
+    const parentEmail = document.getElementById('ftvParentEmail').value;
+    const allergies = document.getElementById('ftvAllergies').value;
+
+    Utils.showToast('Processing FTV check-in...', 'info');
+
+    try {
+      // 1. Create parent first
+      const [parentFirstName, ...parentLastNameParts] = parentName.split(' ');
+      const parentLastName = parentLastNameParts.join(' ') || parentFirstName;
+
+      const parentResult = await Utils.apiRequest('/api/parents', {
+        method: 'POST',
+        body: {
+          first_name: parentFirstName,
+          last_name: parentLastName,
+          phone_number: parentPhone,
+          email: parentEmail || null
+        }
+      });
+
+      if (!parentResult.success) {
+        throw new Error(parentResult.error || 'Failed to create parent');
+      }
+
+      const parentId = parentResult.data.id;
+
+      // 2. Create child
+      const childResult = await Utils.apiRequest('/api/children', {
+        method: 'POST',
+        body: {
+          first_name: firstName,
+          last_name: lastName,
+          date_of_birth: dob,
+          gender: gender || null,
+          allergies: allergies || null,
+          is_ftv: true
+        }
+      });
+
+      if (!childResult.success) {
+        throw new Error(childResult.error || 'Failed to register child');
+      }
+
+      const childId = childResult.data.id;
+
+      // 3. Link parent to child
+      await Utils.apiRequest('/api/children/link-parent', {
+        method: 'POST',
+        body: {
+          childId,
+          parentId,
+          relationshipType: 'parent',
+          authorizedPickup: true
+        }
+      });
+
+      // 4. Assign to FTV class
+      await Utils.apiRequest('/api/classes/assign', {
+        method: 'POST',
+        body: {
+          classId,
+          childId
+        }
+      });
+
+      // 5. Check-in the child
+      const checkInResult = await Utils.apiRequest('/api/checkins', {
+        method: 'POST',
+        body: {
+          childId,
+          classId
+        }
+      });
+
+      if (!checkInResult.success) {
+        throw new Error(checkInResult.error || 'Failed to check-in');
+      }
+
+      Utils.showToast('FTV checked in successfully!', 'success');
+      document.querySelector('.modal-overlay').remove();
+      this.loadFTVChildren(); // Refresh the list
+    } catch (error) {
+      Utils.showToast(error.message || 'Failed to process FTV check-in', 'error');
+    }
+  },
+
   loadSpecialNeedsBoard(content) {
     content.innerHTML = `
       <div class="special-needs-board">
-        <div class="section-header">
-          <h2>Special Needs Board</h2>
-          <button class="btn-secondary" id="addSpecialNeedsFormBtn">+ Add Special Needs Form</button>
+        <div class="section-header" style="margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="margin: 0 0 0.25rem 0;">Special Needs Board</h2>
+            <p class="subtitle" style="margin: 0; color: #6b7280; font-size: 0.9rem;">Children with special needs currently checked in</p>
+          </div>
+          <button class="btn-primary" id="addSpecialFriendBtn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+              <path d="M8 3.33334V12.6667M3.33334 8H12.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Add New Special Friend
+          </button>
         </div>
-        <p class="subtitle">Children with special needs currently checked in</p>
         <div id="specialNeedsList"></div>
       </div>
     `;
     
-    // Attach event listener to Add Special Needs Form button
+    // Attach event listener to Add New Special Friend button
     setTimeout(() => {
-      const addBtn = document.getElementById('addSpecialNeedsFormBtn');
+      const addBtn = document.getElementById('addSpecialFriendBtn');
       if (addBtn) {
-        addBtn.addEventListener('click', () => this.showSpecialNeedsFormModal());
+        addBtn.addEventListener('click', () => this.showChildRegistrationModal(true));
       }
     }, 0);
     
@@ -1986,6 +2615,25 @@ const DashboardNav = {
           </div>
         </div>
         
+        <div class="board-filters" style="background: white; padding: 1.5rem; margin-bottom: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <label style="font-weight: 600; color: #374151;">View:</label>
+            <select id="boardViewType" class="form-control" style="width: auto; min-width: 150px;">
+              <option value="today">Today Only</option>
+              <option value="alltime" selected>All Time Check-ins</option>
+              <option value="daterange">Date Range</option>
+            </select>
+            
+            <div id="dateRangeInputs" style="display: none; gap: 1rem; align-items: center;">
+              <label style="color: #6b7280;">From:</label>
+              <input type="date" id="startDate" class="form-control" style="width: auto;">
+              <label style="color: #6b7280;">To:</label>
+              <input type="date" id="endDate" class="form-control" style="width: auto;">
+              <button class="btn-primary" id="applyDateRange" style="padding: 0.5rem 1rem;">Apply</button>
+            </div>
+          </div>
+        </div>
+        
         <div class="class-board-table-container">
           <p style="text-align: center; color: #6b7280; padding: 2rem;">Loading children...</p>
         </div>
@@ -1997,54 +2645,282 @@ const DashboardNav = {
       document.getElementById('backFromClassBoard')?.addEventListener('click', () => {
         this.switchView('classrooms');
       });
+      
+      // View type selector
+      const viewTypeSelect = document.getElementById('boardViewType');
+      const dateRangeInputs = document.getElementById('dateRangeInputs');
+      
+      viewTypeSelect?.addEventListener('change', (e) => {
+        if (e.target.value === 'daterange') {
+          dateRangeInputs.style.display = 'flex';
+        } else {
+          dateRangeInputs.style.display = 'none';
+          this.loadClassBoardData(classId, className, e.target.value);
+        }
+      });
+      
+      // Date range apply button
+      document.getElementById('applyDateRange')?.addEventListener('click', () => {
+        const startDate = document.getElementById('startDate')?.value;
+        const endDate = document.getElementById('endDate')?.value;
+        if (startDate && endDate) {
+          this.loadClassBoardData(classId, className, 'daterange', startDate, endDate);
+        } else {
+          Utils.showToast('Please select both start and end dates', 'error');
+        }
+      });
     }, 0);
 
-    // Load children checked into this class
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const result = await Utils.apiRequest(`/api/checkins?date=${today}`);
+    // Load all-time data by default
+    this.loadClassBoardData(classId, className, 'alltime');
+  },
 
-      const container = content.querySelector('.class-board-table-container');
-      const statsDiv = document.getElementById('boardStats');
+  async loadClassBoardData(classId, className, viewType = 'alltime', startDate = null, endDate = null) {
+    const container = document.querySelector('.class-board-table-container');
+    const statsDiv = document.getElementById('boardStats');
+    
+    if (!container) return;
+    
+    container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">Loading children...</p>';
+
+    try {
+      // First, get all children assigned to this class
+      const childrenResult = await Utils.apiRequest('/api/children?limit=1000');
+      // The API returns { data: [...], pagination: {...} }, so we need childrenResult.data.data
+      const allChildren = childrenResult.success && childrenResult.data?.data ? childrenResult.data.data : [];
+      const classChildren = allChildren.filter(child => child.default_class_id === classId);
+
+      // Then, get check-ins based on view type
+      let apiUrl = '/api/checkins';
+      let params = new URLSearchParams();
+      
+      if (viewType === 'today') {
+        const today = new Date().toISOString().split('T')[0];
+        params.append('date', today);
+      } else if (viewType === 'daterange' && startDate && endDate) {
+        params.append('startDate', startDate);
+        params.append('endDate', endDate);
+      }
+      // For 'alltime', don't add any date filters
+      
+      const queryString = params.toString();
+      const result = await Utils.apiRequest(queryString ? `${apiUrl}?${queryString}` : apiUrl);
 
       if (result.success) {
         const checkIns = result.data || [];
-        // Filter for this class and currently checked in (no check_out_time)
-        const classChildren = checkIns.filter(ci => 
-          ci.class_attended === classId && !ci.check_out_time
+        // Filter for this class
+        const classCheckIns = checkIns.filter(ci => 
+          ci.class_attended === classId
         );
 
-        // Update stats
-        if (statsDiv) {
-          statsDiv.innerHTML = `
-            <span class="stat-badge stat-primary">${classChildren.length} Checked In</span>
+        // For "today" view, show all class children with their check-in status
+        if (viewType === 'today') {
+          // Create a map of child_id to check-in data
+          const checkInMap = new Map();
+          classCheckIns.forEach(ci => {
+            checkInMap.set(ci.child_id, ci);
+          });
+
+          // Build display data: all children in class with check-in status
+          const displayData = classChildren.map(child => {
+            const checkIn = checkInMap.get(child.id);
+            return {
+              child: child,
+              checkIn: checkIn || null,
+              isCheckedIn: !!checkIn,
+              isCheckedOut: checkIn?.check_out_time ? true : false
+            };
+          });
+
+          // Calculate stats
+          const currentlyHere = displayData.filter(d => d.isCheckedIn && !d.isCheckedOut).length;
+          const checkedOut = displayData.filter(d => d.isCheckedOut).length;
+          const notCheckedIn = displayData.filter(d => !d.isCheckedIn).length;
+          
+          const statsHTML = `
+            <span class="stat-badge stat-success">${currentlyHere} Currently Here</span>
+            <span class="stat-badge stat-warning">${checkedOut} Checked Out</span>
+            <span class="stat-badge stat-secondary" style="background: #94a3b8;">${notCheckedIn} Not Checked In</span>
+            <span class="stat-badge stat-primary">${displayData.length} Total in Class</span>
             <span class="stat-badge">Today: ${new Date().toLocaleDateString()}</span>
           `;
-        }
+          
+          if (statsDiv) {
+            statsDiv.innerHTML = statsHTML;
+          }
 
-        if (classChildren.length === 0) {
+          if (displayData.length === 0) {
+            container.innerHTML = `
+              <div style="text-align: center; padding: 4rem;">
+                <p style="font-size: 1.2rem; color: #6b7280;">No children assigned to this classroom</p>
+                <p style="margin-top: 10px; font-size: 0.875rem; color: #9ca3af;">
+                  Assign children to this class from the Member Management page.
+                </p>
+              </div>
+            `;
+            return;
+          }
+
+          // Sort: checked in first, then by name
+          displayData.sort((a, b) => {
+            if (a.isCheckedIn && !b.isCheckedIn) return -1;
+            if (!a.isCheckedIn && b.isCheckedIn) return 1;
+            return (a.child.first_name || '').localeCompare(b.child.first_name || '');
+          });
+
+          // Create table for today view
           container.innerHTML = `
-            <div style="text-align: center; padding: 4rem;">
-              <p style="font-size: 1.2rem; color: #6b7280;">No children currently checked into this classroom</p>
-              <p style="margin-top: 10px; font-size: 0.875rem; color: #9ca3af;">
-                Children will appear here once they are checked in and assigned to this classroom.
-              </p>
+            <div class="spreadsheet-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 50px;">#</th>
+                    <th style="width: 150px;">Status</th>
+                    <th style="width: 180px;">Child Name</th>
+                    <th style="width: 80px;">Age</th>
+                    <th style="width: 120px;">Date of Birth</th>
+                    <th style="width: 120px;">Check-in Time</th>
+                    <th style="width: 120px;">Check-out Time</th>
+                    <th style="width: 120px;">Security Code</th>
+                    <th style="width: 180px;">Parent/Guardian</th>
+                    <th style="width: 150px;">Phone</th>
+                    <th style="width: 200px;">Allergies</th>
+                    <th style="width: 200px;">Medical Notes</th>
+                    <th style="width: 150px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${displayData.map((item, index) => {
+                    const child = item.child;
+                    const ci = item.checkIn;
+                    const parent = ci?.parents;
+                    
+                    const age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+                    
+                    let statusBadge = '';
+                    let rowClass = '';
+                    if (!item.isCheckedIn) {
+                      statusBadge = '<span class="status-badge" style="background: #94a3b8; color: white;">Not Checked In</span>';
+                      rowClass = 'row-not-checked-in';
+                    } else if (item.isCheckedOut) {
+                      statusBadge = '<span class="status-badge status-checked-out">Checked Out</span>';
+                      rowClass = 'row-checked-out';
+                    } else {
+                      statusBadge = '<span class="status-badge status-checked-in">Present</span>';
+                      rowClass = '';
+                    }
+                    
+                    return `
+                      <tr data-checkin-id="${ci?.id || ''}" data-child-id="${child.id}" class="${rowClass}">
+                        <td class="row-number">${index + 1}</td>
+                        <td>${statusBadge}</td>
+                        <td class="child-name">
+                          <strong>${child.first_name} ${child.last_name}</strong>
+                          ${child.special_needs ? '<span class="badge badge-special">Special Needs</span>' : ''}
+                        </td>
+                        <td>${age}</td>
+                        <td>${child.date_of_birth || 'N/A'}</td>
+                        <td>${ci?.check_in_time ? Utils.formatTime(ci.check_in_time) : '-'}</td>
+                        <td>${ci?.check_out_time ? Utils.formatTime(ci.check_out_time) : '-'}</td>
+                        <td class="security-code">${ci?.security_code || '-'}</td>
+                        <td>${parent ? `${parent.first_name} ${parent.last_name}` : '-'}</td>
+                        <td>${parent?.phone_number || '-'}</td>
+                        <td class="allergies-cell ${child.allergies ? 'has-allergies' : ''}">
+                          ${child.allergies || '-'}
+                        </td>
+                        <td class="medical-cell ${child.medical_notes ? 'has-medical' : ''}">
+                          ${child.medical_notes || '-'}
+                        </td>
+                        <td class="actions-cell">
+                          ${ci ? `
+                            <button class="action-btn print-btn" data-checkin-data='${JSON.stringify({ child, code: ci.security_code })}' title="Print Security Tag">
+                              Print Tag
+                            </button>
+                            <button class="action-btn info-btn" data-child='${JSON.stringify(child).replace(/'/g, "&#39;")}' title="View Child Details">
+                              Details
+                            </button>
+                          ` : '-'}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
             </div>
           `;
-          return;
-        }
 
-        // Create spreadsheet-style table
-        container.innerHTML = `
+          // Attach event listeners to action buttons
+          this.attachClassBoardActions(displayData.filter(d => d.checkIn).map(d => d.checkIn));
+          
+          // Export CSV functionality - pass displayData for today view
+          document.getElementById('exportToCSV')?.addEventListener('click', () => {
+            this.exportClassBoardToCSV(displayData, className);
+          });
+
+          // Print functionality
+          document.getElementById('printClassBoard')?.addEventListener('click', () => {
+            this.printClassBoard(className);
+          });
+        } else {
+          // For "all time" and "date range" views, show check-in history
+          const classChildren = classCheckIns;
+
+          // Calculate stats based on view type
+          let statsHTML = '';
+          if (viewType === 'alltime') {
+            const uniqueChildren = new Set(classChildren.map(ci => ci.child_id));
+            const totalCheckIns = classChildren.length;
+            statsHTML = `
+              <span class="stat-badge stat-primary">${uniqueChildren.size} Unique Children</span>
+              <span class="stat-badge stat-info">${totalCheckIns} Total Check-ins</span>
+              <span class="stat-badge">All Time Records</span>
+            `;
+          } else if (viewType === 'daterange') {
+            const uniqueChildren = new Set(classChildren.map(ci => ci.child_id));
+            statsHTML = `
+              <span class="stat-badge stat-primary">${uniqueChildren.size} Unique Children</span>
+              <span class="stat-badge stat-info">${classChildren.length} Total Check-ins</span>
+              <span class="stat-badge">${startDate} to ${endDate}</span>
+            `;
+          }
+          
+          if (statsDiv) {
+            statsDiv.innerHTML = statsHTML;
+          }
+
+          if (classChildren.length === 0) {
+            const viewMessage = viewType === 'alltime'
+              ? 'No check-in history found for this classroom'
+              : 'No check-ins found for the selected date range';
+              
+            container.innerHTML = `
+              <div style="text-align: center; padding: 4rem;">
+                <p style="font-size: 1.2rem; color: #6b7280;">${viewMessage}</p>
+                <p style="margin-top: 10px; font-size: 0.875rem; color: #9ca3af;">
+                  Children will appear here once they are checked in and assigned to this classroom.
+                </p>
+              </div>
+            `;
+            return;
+          }
+
+          // Sort by check-in date (newest first)
+          classChildren.sort((a, b) => new Date(b.check_in_time) - new Date(a.check_in_time));
+
+          // Create spreadsheet-style table
+          container.innerHTML = `
           <div class="spreadsheet-table">
             <table>
               <thead>
                 <tr>
                   <th style="width: 50px;">#</th>
+                  <th style="width: 120px;">Check-in Date</th>
+                  <th style="width: 100px;">Status</th>
                   <th style="width: 180px;">Child Name</th>
                   <th style="width: 80px;">Age</th>
                   <th style="width: 120px;">Date of Birth</th>
                   <th style="width: 120px;">Check-in Time</th>
+                  <th style="width: 120px;">Check-out Time</th>
                   <th style="width: 120px;">Security Code</th>
                   <th style="width: 180px;">Parent/Guardian</th>
                   <th style="width: 150px;">Phone</th>
@@ -2058,10 +2934,16 @@ const DashboardNav = {
                   const child = ci.children;
                   const parent = ci.parents;
                   const age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+                  const isCheckedOut = !!ci.check_out_time;
+                  const statusClass = isCheckedOut ? 'status-checked-out' : 'status-checked-in';
+                  const statusText = isCheckedOut ? 'Checked Out' : 'Present';
+                  const checkInDate = new Date(ci.check_in_time).toLocaleDateString();
                   
                   return `
-                    <tr data-checkin-id="${ci.id}" data-child-id="${child.id}">
+                    <tr data-checkin-id="${ci.id}" data-child-id="${child.id}" class="${isCheckedOut ? 'row-checked-out' : ''}">
                       <td class="row-number">${index + 1}</td>
+                      <td>${checkInDate}</td>
+                      <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                       <td class="child-name">
                         <strong>${child.first_name} ${child.last_name}</strong>
                         ${child.special_needs ? '<span class="badge badge-special">Special Needs</span>' : ''}
@@ -2069,6 +2951,7 @@ const DashboardNav = {
                       <td>${age}</td>
                       <td>${child.date_of_birth || 'N/A'}</td>
                       <td>${Utils.formatTime(ci.check_in_time)}</td>
+                      <td>${ci.check_out_time ? Utils.formatTime(ci.check_out_time) : '-'}</td>
                       <td class="security-code">${ci.security_code}</td>
                       <td>${parent ? `${parent.first_name} ${parent.last_name}` : 'N/A'}</td>
                       <td>${parent?.phone_number || 'N/A'}</td>
@@ -2079,9 +2962,6 @@ const DashboardNav = {
                         ${child.medical_notes || '-'}
                       </td>
                       <td class="actions-cell">
-                        <button class="action-btn checkout-btn" data-checkin-id="${ci.id}" data-code="${ci.security_code}" title="Check Out Child">
-                          Checkout
-                        </button>
                         <button class="action-btn print-btn" data-checkin-data='${JSON.stringify({ child, code: ci.security_code })}' title="Print Security Tag">
                           Print Tag
                         </button>
@@ -2097,18 +2977,19 @@ const DashboardNav = {
           </div>
         `;
 
-        // Attach event listeners to action buttons
-        this.attachClassBoardActions(classChildren);
+          // Attach event listeners to action buttons
+          this.attachClassBoardActions(classChildren);
 
-        // Export CSV functionality
-        document.getElementById('exportToCSV')?.addEventListener('click', () => {
-          this.exportClassBoardToCSV(classChildren, className);
-        });
+          // Export CSV functionality
+          document.getElementById('exportToCSV')?.addEventListener('click', () => {
+            this.exportClassBoardToCSV(classChildren, className);
+          });
 
-        // Print functionality
-        document.getElementById('printClassBoard')?.addEventListener('click', () => {
-          this.printClassBoard(className);
-        });
+          // Print functionality
+          document.getElementById('printClassBoard')?.addEventListener('click', () => {
+            this.printClassBoard(className);
+          });
+        }
       } else {
         container.innerHTML = `
           <div style="text-align: center; padding: 4rem;">
@@ -2119,7 +3000,12 @@ const DashboardNav = {
       }
     } catch (error) {
       console.error('Error loading class board:', error);
-      Utils.showToast('Failed to load class board', 'error');
+      container.innerHTML = `
+        <div style="text-align: center; padding: 4rem;">
+          <p style="font-size: 1.2rem; color: #ef4444;">Error loading data</p>
+          <p style="margin-top: 10px; font-size: 0.875rem; color: #9ca3af;">${error.message || 'Unknown error'}</p>
+        </div>
+      `;
     }
   },
 
@@ -2250,20 +3136,52 @@ const DashboardNav = {
   },
 
   exportClassBoardToCSV(classChildren, className) {
-    const headers = ['#', 'Child Name', 'Age', 'Date of Birth', 'Check-in Time', 'Security Code', 'Parent/Guardian', 'Phone', 'Allergies', 'Medical Notes', 'Special Needs'];
+    // Check if classChildren is the new format (objects with child/checkIn properties)
+    // or the old format (check-in objects)
+    const isNewFormat = classChildren.length > 0 && classChildren[0].hasOwnProperty('child');
     
-    const rows = classChildren.map((ci, index) => {
-      const child = ci.children;
-      const parent = ci.parents;
-      const age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+    const headers = ['#', 'Status', 'Child Name', 'Age', 'Date of Birth', 'Check-in Time', 'Check-out Time', 'Security Code', 'Parent/Guardian', 'Phone', 'Allergies', 'Medical Notes', 'Special Needs'];
+    
+    const rows = classChildren.map((item, index) => {
+      let child, ci, parent, age, checkInTime, checkOutTime, securityCode, status;
+      
+      if (isNewFormat) {
+        // New format: { child, checkIn, isCheckedIn, isCheckedOut }
+        child = item.child;
+        ci = item.checkIn;
+        parent = ci?.parents;
+        age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+        checkInTime = ci?.check_in_time ? Utils.formatTime(ci.check_in_time) : '-';
+        checkOutTime = ci?.check_out_time ? Utils.formatTime(ci.check_out_time) : '-';
+        securityCode = ci?.security_code || '-';
+        
+        if (!item.isCheckedIn) {
+          status = 'Not Checked In';
+        } else if (item.isCheckedOut) {
+          status = 'Checked Out';
+        } else {
+          status = 'Present';
+        }
+      } else {
+        // Old format: check-in object
+        child = item.children;
+        parent = item.parents;
+        age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+        checkInTime = Utils.formatTime(item.check_in_time);
+        checkOutTime = item.check_out_time ? Utils.formatTime(item.check_out_time) : '-';
+        securityCode = item.security_code;
+        status = item.check_out_time ? 'Checked Out' : 'Present';
+      }
       
       return [
         index + 1,
+        status,
         `${child.first_name} ${child.last_name}`,
         age,
         child.date_of_birth || 'N/A',
-        Utils.formatTime(ci.check_in_time),
-        ci.security_code,
+        checkInTime,
+        checkOutTime,
+        securityCode,
         parent ? `${parent.first_name} ${parent.last_name}` : 'N/A',
         parent?.phone_number || 'N/A',
         child.allergies || '-',
@@ -2530,7 +3448,7 @@ const DashboardNav = {
     }, 0);
   },
 
-  showChildRegistrationModal() {
+  showChildRegistrationModal(autoOpenSpecialNeeds = false) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -2579,14 +3497,54 @@ const DashboardNav = {
 
           <div class="form-group">
             <label class="checkbox-label">
-              <input type="checkbox" id="childSpecialNeeds">
+              <input type="checkbox" id="childSpecialNeeds" ${autoOpenSpecialNeeds ? 'checked' : ''}>
               This child has special needs
             </label>
           </div>
 
-          <div class="form-group" id="specialNeedsDetails" style="display:none;">
-            <label>Special Needs Details</label>
-            <textarea id="childSpecialNeedsDetails" rows="3" placeholder="Describe special needs..."></textarea>
+          <!-- Special Needs Form Fields (shown when checkbox is checked) -->
+          <div id="specialNeedsFormFields" style="display:${autoOpenSpecialNeeds ? 'block' : 'none'}; border: 2px solid #14b8a6; border-radius: 8px; padding: 1.5rem; margin-top: 1rem; background: #f0fdfa;">
+            <h3 style="margin: 0 0 1rem 0; color: #14b8a6; font-size: 1.1rem;">Special Needs Information</h3>
+            
+            <div class="form-group">
+              <label>Diagnosis</label>
+              <input type="text" id="childDiagnosis" placeholder="e.g., Autism, ADHD, Down Syndrome">
+            </div>
+
+            <div class="form-group">
+              <label>Medications</label>
+              <textarea id="childMedications" rows="2" placeholder="List any medications and dosages..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Triggers</label>
+              <textarea id="childTriggers" rows="2" placeholder="What situations or stimuli might cause distress?"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Communication Methods</label>
+              <textarea id="childCommunication" rows="2" placeholder="How does the child communicate? Any specific techniques?"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Behavioral Support</label>
+              <textarea id="childBehavioral" rows="2" placeholder="Strategies that help manage behavior..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Sensory Needs</label>
+              <textarea id="childSensory" rows="2" placeholder="Any sensory sensitivities or requirements..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Emergency Procedures</label>
+              <textarea id="childEmergency" rows="2" placeholder="What to do in case of an emergency or crisis..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Additional Notes</label>
+              <textarea id="childAdditionalNotes" rows="2" placeholder="Any other important information..."></textarea>
+            </div>
           </div>
 
           <div class="form-actions">
@@ -2599,10 +3557,18 @@ const DashboardNav = {
 
     document.body.appendChild(modal);
 
-    // Toggle special needs details
+    // Toggle special needs form fields
     document.getElementById('childSpecialNeeds').addEventListener('change', (e) => {
-      document.getElementById('specialNeedsDetails').style.display = 
-        e.target.checked ? 'block' : 'none';
+      const specialNeedsFields = document.getElementById('specialNeedsFormFields');
+      if (e.target.checked) {
+        specialNeedsFields.style.display = 'block';
+        // Smooth scroll to show the fields
+        setTimeout(() => {
+          specialNeedsFields.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+      } else {
+        specialNeedsFields.style.display = 'none';
+      }
     });
 
     // Handle form submission
@@ -2617,6 +3583,8 @@ const DashboardNav = {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Registering...';
 
+    const specialNeedsChecked = document.getElementById('childSpecialNeeds').checked;
+
     const childData = {
       first_name: document.getElementById('childFirstName').value.trim(),
       last_name: document.getElementById('childLastName').value.trim(),
@@ -2624,11 +3592,23 @@ const DashboardNav = {
       gender: document.getElementById('childGender').value || null,
       allergies: document.getElementById('childAllergies').value.trim() || null,
       medical_notes: document.getElementById('childMedicalNotes').value.trim() || null,
-      special_needs: document.getElementById('childSpecialNeeds').checked,
-      special_needs_details: document.getElementById('childSpecialNeeds').checked 
-        ? document.getElementById('childSpecialNeedsDetails').value.trim() || null
-        : null
+      special_needs: specialNeedsChecked
     };
+
+    // If special needs is checked, collect all special needs form data
+    let specialNeedsData = null;
+    if (specialNeedsChecked) {
+      specialNeedsData = {
+        diagnosis: document.getElementById('childDiagnosis')?.value.trim() || null,
+        medications: document.getElementById('childMedications')?.value.trim() || null,
+        triggers: document.getElementById('childTriggers')?.value.trim() || null,
+        communication_methods: document.getElementById('childCommunication')?.value.trim() || null,
+        behavioral_support: document.getElementById('childBehavioral')?.value.trim() || null,
+        sensory_needs: document.getElementById('childSensory')?.value.trim() || null,
+        emergency_procedures: document.getElementById('childEmergency')?.value.trim() || null,
+        additional_notes: document.getElementById('childAdditionalNotes')?.value.trim() || null
+      };
+    }
 
     const result = await Utils.apiRequest('/api/children', {
       method: 'POST',
@@ -2636,7 +3616,25 @@ const DashboardNav = {
     });
 
     if (result.success) {
-      Utils.showToast('Child registered successfully!', 'success');
+      const childId = result.data.id;
+      
+      // If special needs data was collected, submit it separately
+      if (specialNeedsData && childId) {
+        specialNeedsData.child_id = childId;
+        const specialNeedsResult = await Utils.apiRequest('/api/special-needs', {
+          method: 'POST',
+          body: JSON.stringify(specialNeedsData)
+        });
+        
+        if (!specialNeedsResult.success) {
+          console.warn('Child registered but special needs form submission failed:', specialNeedsResult.error);
+          Utils.showToast('Child registered, but special needs form had an issue. Please update it from the child\'s profile.', 'warning');
+        } else {
+          Utils.showToast('Child and special needs information registered successfully!', 'success');
+        }
+      } else {
+        Utils.showToast('Child registered successfully!', 'success');
+      }
       document.querySelector('.modal-overlay').remove();
       this.loadCheckinView(document.getElementById('dashboardContent'));
     } else {
@@ -2749,14 +3747,36 @@ const DashboardNav = {
           <h2>Manage Children & Parents</h2>
           <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
         </div>
-        <div class="form-group">
-          <input 
-            type="text" 
-            id="manageChildSearch" 
-            placeholder="Search by child name..." 
-            style="width: 100%;"
-          >
+        
+        <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+          <div class="form-group" style="flex: 1; margin: 0;">
+            <input 
+              type="text" 
+              id="manageChildSearch" 
+              placeholder="Search by child name..." 
+              style="width: 100%;"
+            >
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button id="selectAllBtn" class="btn-secondary" style="white-space: nowrap;">Select All</button>
+            <button id="deselectAllBtn" class="btn-secondary" style="white-space: nowrap;">Deselect All</button>
+          </div>
         </div>
+
+        <div id="bulkActionsBar" style="display: none; padding: 1rem; background: #f0fdfa; border: 2px solid #14b8a6; border-radius: 8px; margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <span id="selectedCount" style="font-weight: 600; color: #0f766e;">0 children selected</span>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <select id="bulkClassSelect" class="form-control" style="width: auto; min-width: 150px;">
+                <option value="">Assign to Class...</option>
+              </select>
+              <button id="bulkAssignBtn" class="btn-primary" style="white-space: nowrap;">Assign Selected</button>
+              <button id="bulkExportBtn" class="btn-secondary" style="white-space: nowrap;">Export Selected</button>
+              <button id="bulkDeleteBtn" class="btn-danger" style="white-space: nowrap; background: #dc2626; color: white;">Delete Selected</button>
+            </div>
+          </div>
+        </div>
+
         <div id="childrenList" style="margin-top: 1rem;">
           Loading children...
         </div>
@@ -2765,12 +3785,41 @@ const DashboardNav = {
 
     document.body.appendChild(modal);
 
+    // Initialize selected children set
+    this.selectedChildren = new Set();
+
     // Load children
     await this.loadChildrenForManagement();
+
+    // Load classes for bulk assignment
+    await this.loadClassesForBulkActions();
 
     // Search functionality
     document.getElementById('manageChildSearch').addEventListener('input', (e) => {
       this.filterChildrenList(e.target.value);
+    });
+
+    // Select all button
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+      this.selectAllChildren();
+    });
+
+    // Deselect all button
+    document.getElementById('deselectAllBtn').addEventListener('click', () => {
+      this.deselectAllChildren();
+    });
+
+    // Bulk actions
+    document.getElementById('bulkAssignBtn').addEventListener('click', () => {
+      this.bulkAssignToClass();
+    });
+
+    document.getElementById('bulkExportBtn').addEventListener('click', () => {
+      this.bulkExportChildren();
+    });
+
+    document.getElementById('bulkDeleteBtn').addEventListener('click', () => {
+      this.bulkDeleteChildren();
     });
   },
 
@@ -2800,11 +3849,20 @@ const DashboardNav = {
     const container = document.getElementById('childrenList');
     
     container.innerHTML = children.map(child => `
-      <div class="child-manage-item" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <strong>${child.first_name} ${child.last_name}</strong>
-          <span style="color: #6b7280; margin-left: 1rem;">DOB: ${child.date_of_birth}</span>
-          ${child.special_needs ? '<span style="margin-left: 1rem; padding: 0.25rem 0.5rem; background: #fef3c7; border-radius: 4px; font-size: 0.75rem;">Special Needs</span>' : ''}
+      <div class="child-manage-item" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; background: white;">
+        <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
+          <input 
+            type="checkbox" 
+            class="child-checkbox" 
+            data-child-id="${child.id}"
+            style="width: 18px; height: 18px; cursor: pointer;"
+            ${this.selectedChildren && this.selectedChildren.has(child.id) ? 'checked' : ''}
+          >
+          <div>
+            <strong style="color: #1e293b; font-size: 1.1rem;">${child.first_name} ${child.last_name}</strong>
+            <span style="color: #64748b; margin-left: 1rem; font-size: 0.9rem;">DOB: ${child.date_of_birth}</span>
+            ${child.special_needs ? '<span style="margin-left: 1rem; padding: 0.25rem 0.5rem; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 0.75rem; font-weight: 500;">Special Needs</span>' : ''}
+          </div>
         </div>
         <button 
           class="btn-secondary manage-parents-btn" 
@@ -2817,16 +3875,27 @@ const DashboardNav = {
       </div>
     `).join('');
     
-    // Attach event listeners to all Manage Parents buttons
-    setTimeout(() => {
-      document.querySelectorAll('.manage-parents-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const childId = btn.getAttribute('data-child-id');
-          const childName = btn.getAttribute('data-child-name');
-          this.showParentLinkingModal(childId, childName);
-        });
+    // Attach event listeners to checkboxes
+    document.querySelectorAll('.child-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        const childId = e.target.getAttribute('data-child-id');
+        if (e.target.checked) {
+          this.selectedChildren.add(childId);
+        } else {
+          this.selectedChildren.delete(childId);
+        }
+        this.updateBulkActionsBar();
       });
-    }, 0);
+    });
+
+    // Attach event listeners to all Manage Parents buttons
+    document.querySelectorAll('.manage-parents-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const childId = btn.getAttribute('data-child-id');
+        const childName = btn.getAttribute('data-child-name');
+        this.showParentLinkingModal(childId, childName);
+      });
+    });
   },
 
   filterChildrenList(query) {
@@ -2837,6 +3906,455 @@ const DashboardNav = {
     );
     
     this.renderChildrenList(filtered);
+  },
+
+  updateBulkActionsBar() {
+    const bulkBar = document.getElementById('bulkActionsBar');
+    const countSpan = document.getElementById('selectedCount');
+    const count = this.selectedChildren.size;
+
+    if (count > 0) {
+      bulkBar.style.display = 'block';
+      countSpan.textContent = `${count} ${count === 1 ? 'child' : 'children'} selected`;
+    } else {
+      bulkBar.style.display = 'none';
+    }
+  },
+
+  selectAllChildren() {
+    if (!this.allChildren) return;
+    
+    this.allChildren.forEach(child => {
+      this.selectedChildren.add(child.id);
+    });
+    
+    document.querySelectorAll('.child-checkbox').forEach(cb => {
+      cb.checked = true;
+    });
+    
+    this.updateBulkActionsBar();
+  },
+
+  deselectAllChildren() {
+    this.selectedChildren.clear();
+    
+    document.querySelectorAll('.child-checkbox').forEach(cb => {
+      cb.checked = false;
+    });
+    
+    this.updateBulkActionsBar();
+  },
+
+  async loadClassesForBulkActions() {
+    const result = await Utils.apiRequest('/api/classes');
+    
+    if (result.success) {
+      const select = document.getElementById('bulkClassSelect');
+      const classes = result.data.data || [];
+      
+      classes.forEach(cls => {
+        const option = document.createElement('option');
+        option.value = cls.id;
+        option.textContent = cls.name;
+        select.appendChild(option);
+      });
+    }
+  },
+
+  async bulkAssignToClass() {
+    const classId = document.getElementById('bulkClassSelect').value;
+    
+    if (!classId) {
+      Utils.showToast('Please select a class', 'error');
+      return;
+    }
+
+    if (this.selectedChildren.size === 0) {
+      Utils.showToast('No children selected', 'error');
+      return;
+    }
+
+    const confirmed = confirm(`Assign ${this.selectedChildren.size} children to this class?`);
+    if (!confirmed) return;
+
+    Utils.showToast('Assigning children...', 'info');
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const childId of this.selectedChildren) {
+      try {
+        const result = await Utils.apiRequest('/api/classes/assign', {
+          method: 'POST',
+          body: { classId, childId }
+        });
+        
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      Utils.showToast(`Successfully assigned ${successCount} children`, 'success');
+    }
+    
+    if (errorCount > 0) {
+      Utils.showToast(`Failed to assign ${errorCount} children`, 'error');
+    }
+
+    // Clear selection
+    this.deselectAllChildren();
+  },
+
+  bulkExportChildren() {
+    if (this.selectedChildren.size === 0) {
+      Utils.showToast('No children selected', 'error');
+      return;
+    }
+
+    const selectedData = this.allChildren.filter(child => 
+      this.selectedChildren.has(child.id)
+    );
+
+    // Create CSV
+    const headers = ['First Name', 'Last Name', 'Date of Birth', 'Gender', 'Special Needs', 'Allergies', 'Medical Notes'];
+    const rows = selectedData.map(child => [
+      child.first_name || '',
+      child.last_name || '',
+      child.date_of_birth || '',
+      child.gender || '',
+      child.special_needs ? 'Yes' : 'No',
+      child.allergies || '',
+      child.medical_notes || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `selected-children-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    Utils.showToast(`Exported ${this.selectedChildren.size} children`, 'success');
+  },
+
+  async bulkDeleteChildren() {
+    if (this.selectedChildren.size === 0) {
+      Utils.showToast('No children selected', 'error');
+      return;
+    }
+
+    const confirmed = confirm(
+      `⚠️ WARNING: This will permanently delete ${this.selectedChildren.size} children and all their related data.\n\n` +
+      `This action cannot be undone. Are you sure?`
+    );
+    
+    if (!confirmed) return;
+
+    // Double confirmation for safety
+    const doubleConfirm = confirm(
+      `Please confirm again: Delete ${this.selectedChildren.size} children permanently?`
+    );
+    
+    if (!doubleConfirm) return;
+
+    Utils.showToast('Deleting children...', 'info');
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const childId of this.selectedChildren) {
+      try {
+        const result = await Utils.apiRequest(`/api/children/${childId}`, {
+          method: 'DELETE'
+        });
+        
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      Utils.showToast(`Successfully deleted ${successCount} children`, 'success');
+    }
+    
+    if (errorCount > 0) {
+      Utils.showToast(`Failed to delete ${errorCount} children`, 'error');
+    }
+
+    // Reload the list
+    await this.loadChildrenForManagement();
+    this.deselectAllChildren();
+  },
+
+  // Tab-specific bulk action methods
+  updateBulkActionsBarTab() {
+    const bulkBar = document.getElementById('bulkActionsBarTab');
+    const countSpan = document.getElementById('selectedCountTab');
+    const count = this.selectedChildrenTab ? this.selectedChildrenTab.size : 0;
+
+    if (count > 0) {
+      bulkBar.style.display = 'block';
+      countSpan.textContent = `${count} ${count === 1 ? 'child' : 'children'} selected`;
+    } else {
+      bulkBar.style.display = 'none';
+    }
+  },
+
+  selectAllChildrenTab() {
+    if (!this.currentChildren) return;
+    
+    this.currentChildren.forEach(child => {
+      this.selectedChildrenTab.add(child.id);
+    });
+    
+    document.querySelectorAll('.child-checkbox-tab').forEach(cb => {
+      cb.checked = true;
+    });
+    
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (selectAllCheckbox) selectAllCheckbox.checked = true;
+    
+    this.updateBulkActionsBarTab();
+  },
+
+  deselectAllChildrenTab() {
+    this.selectedChildrenTab.clear();
+    
+    document.querySelectorAll('.child-checkbox-tab').forEach(cb => {
+      cb.checked = false;
+    });
+    
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    
+    this.updateBulkActionsBarTab();
+  },
+
+  async loadClassesForBulkActionsTab() {
+    const result = await Utils.apiRequest('/api/classes');
+    
+    if (result.success) {
+      const select = document.getElementById('bulkClassSelectTab');
+      if (!select) return;
+      
+      const classes = result.data.data || [];
+      
+      classes.forEach(cls => {
+        const option = document.createElement('option');
+        option.value = cls.id;
+        option.textContent = cls.name;
+        select.appendChild(option);
+      });
+    }
+  },
+
+  async bulkAssignToClassTab() {
+    const classId = document.getElementById('bulkClassSelectTab').value;
+    
+    if (!classId) {
+      Utils.showToast('Please select a class', 'error');
+      return;
+    }
+
+    if (this.selectedChildrenTab.size === 0) {
+      Utils.showToast('No children selected', 'error');
+      return;
+    }
+
+    const confirmed = confirm(`Assign ${this.selectedChildrenTab.size} children to this class?`);
+    if (!confirmed) return;
+
+    Utils.showToast('Assigning children...', 'info');
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const childId of this.selectedChildrenTab) {
+      try {
+        const result = await Utils.apiRequest('/api/classes/assign', {
+          method: 'POST',
+          body: { classId, childId }
+        });
+        
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      Utils.showToast(`Successfully assigned ${successCount} children`, 'success');
+    }
+    
+    if (errorCount > 0) {
+      Utils.showToast(`Failed to assign ${errorCount} children`, 'error');
+    }
+
+    // Clear selection
+    this.deselectAllChildrenTab();
+  },
+
+  bulkExportChildrenTab() {
+    if (this.selectedChildrenTab.size === 0) {
+      Utils.showToast('No children selected', 'error');
+      return;
+    }
+
+    const selectedData = this.currentChildren.filter(child => 
+      this.selectedChildrenTab.has(child.id)
+    );
+
+    // Create CSV
+    const headers = ['First Name', 'Last Name', 'Date of Birth', 'Gender', 'Special Needs', 'Allergies', 'Medical Notes'];
+    const rows = selectedData.map(child => [
+      child.first_name || '',
+      child.last_name || '',
+      child.date_of_birth || '',
+      child.gender || '',
+      child.special_needs ? 'Yes' : 'No',
+      child.allergies || '',
+      child.medical_notes || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `selected-children-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    Utils.showToast(`Exported ${this.selectedChildrenTab.size} children`, 'success');
+  },
+
+  async bulkArchiveChildrenTab() {
+    if (this.selectedChildrenTab.size === 0) {
+      Utils.showToast('No children selected', 'error');
+      return;
+    }
+
+    const reason = prompt(`Why are you archiving ${this.selectedChildrenTab.size} children?\n\n(e.g., moved away, switched churches, etc.)`);
+    if (reason === null) return; // User cancelled
+
+    Utils.showToast('Archiving children...', 'info');
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const childId of this.selectedChildrenTab) {
+      try {
+        const result = await Utils.apiRequest(`/api/children/${childId}/archive`, {
+          method: 'POST',
+          body: { reason: reason || 'No reason provided' }
+        });
+        
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      Utils.showToast(`Successfully archived ${successCount} children`, 'success');
+    }
+    
+    if (errorCount > 0) {
+      Utils.showToast(`Failed to archive ${errorCount} children`, 'error');
+    }
+
+    // Reload the table and clear selection
+    await this.loadChildrenTable();
+    this.deselectAllChildrenTab();
+  },
+
+  async bulkDeleteChildrenTab() {
+    if (this.selectedChildrenTab.size === 0) {
+      Utils.showToast('No children selected', 'error');
+      return;
+    }
+
+    const confirmed = confirm(
+      `⚠️ WARNING: This will permanently delete ${this.selectedChildrenTab.size} children and all their related data.\n\n` +
+      `This action cannot be undone. Are you sure?`
+    );
+    
+    if (!confirmed) return;
+
+    // Double confirmation for safety
+    const doubleConfirm = confirm(
+      `Please confirm again: Delete ${this.selectedChildrenTab.size} children permanently?`
+    );
+    
+    if (!doubleConfirm) return;
+
+    Utils.showToast('Deleting children...', 'info');
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const childId of this.selectedChildrenTab) {
+      try {
+        const result = await Utils.apiRequest(`/api/children/${childId}`, {
+          method: 'DELETE'
+        });
+        
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      Utils.showToast(`Successfully deleted ${successCount} children`, 'success');
+    }
+    
+    if (errorCount > 0) {
+      Utils.showToast(`Failed to delete ${errorCount} children`, 'error');
+    }
+
+    // Reload the table and clear selection
+    await this.loadChildrenTable();
+    this.deselectAllChildrenTab();
   },
 
   async showParentLinkingModal(childId, childName) {
@@ -3361,6 +4879,24 @@ const DashboardNav = {
             <input type="checkbox" id="showArchived" style="width: 16px; height: 16px; cursor: pointer;">
             <span style="font-size: 0.95rem; color: #374151;">Show Archived</span>
           </label>
+
+          <button id="selectAllChildrenBtn" class="btn-secondary" style="white-space: nowrap;">Select All</button>
+          <button id="deselectAllChildrenBtn" class="btn-secondary" style="white-space: nowrap;">Deselect All</button>
+        </div>
+
+        <div id="bulkActionsBarTab" style="display: none; padding: 1rem; background: #f0fdfa; border: 2px solid #14b8a6; border-radius: 8px; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <span id="selectedCountTab" style="font-weight: 600; color: #0f766e;">0 children selected</span>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <select id="bulkClassSelectTab" class="form-control" style="width: auto; min-width: 150px;">
+                <option value="">Assign to Class...</option>
+              </select>
+              <button id="bulkAssignBtnTab" class="btn-primary" style="white-space: nowrap;">Assign Selected</button>
+              <button id="bulkExportBtnTab" class="btn-secondary" style="white-space: nowrap;">Export Selected</button>
+              <button id="bulkArchiveBtnTab" class="btn-secondary" style="white-space: nowrap;">Archive Selected</button>
+              <button id="bulkDeleteBtnTab" class="btn-danger" style="white-space: nowrap; background: #dc2626; color: white;">Delete Selected</button>
+            </div>
+          </div>
         </div>
         
         <div id="childManagementStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
@@ -3400,9 +4936,40 @@ const DashboardNav = {
       if (inactivityFilter) {
         inactivityFilter.addEventListener('change', () => this.loadChildrenTable());
       }
+
+      // Bulk action buttons
+      const selectAllBtn = document.getElementById('selectAllChildrenBtn');
+      const deselectAllBtn = document.getElementById('deselectAllChildrenBtn');
+      const bulkAssignBtn = document.getElementById('bulkAssignBtnTab');
+      const bulkExportBtn = document.getElementById('bulkExportBtnTab');
+      const bulkArchiveBtn = document.getElementById('bulkArchiveBtnTab');
+      const bulkDeleteBtn = document.getElementById('bulkDeleteBtnTab');
+
+      if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', () => this.selectAllChildrenTab());
+      }
+      if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', () => this.deselectAllChildrenTab());
+      }
+      if (bulkAssignBtn) {
+        bulkAssignBtn.addEventListener('click', () => this.bulkAssignToClassTab());
+      }
+      if (bulkExportBtn) {
+        bulkExportBtn.addEventListener('click', () => this.bulkExportChildrenTab());
+      }
+      if (bulkArchiveBtn) {
+        bulkArchiveBtn.addEventListener('click', () => this.bulkArchiveChildrenTab());
+      }
+      if (bulkDeleteBtn) {
+        bulkDeleteBtn.addEventListener('click', () => this.bulkDeleteChildrenTab());
+      }
     }, 0);
 
+    // Initialize selected children set for tab
+    this.selectedChildrenTab = new Set();
+
     await this.loadChildrenTable();
+    await this.loadClassesForBulkActionsTab();
   },
 
   async loadChildrenTable() {
@@ -3543,6 +5110,9 @@ const DashboardNav = {
           <table class="modern-table" id="childrenTable" style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                <th style="padding: 0.75rem 1rem; text-align: center; font-weight: 600; color: #374151; font-size: 0.85rem; width: 40px;">
+                  <input type="checkbox" id="selectAllCheckbox" style="width: 18px; height: 18px; cursor: pointer;">
+                </th>
                 <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">#</th>
                 <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Name</th>
                 <th style="padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #374151; font-size: 0.85rem;">Parents</th>
@@ -3592,6 +5162,11 @@ const DashboardNav = {
                       style="border-bottom: 1px solid #f3f4f6; transition: background-color 0.15s;"
                       onmouseover="this.style.backgroundColor='#f9fafb'" 
                       onmouseout="this.style.backgroundColor='white'">
+                    <td style="padding: 1rem; text-align: center;">
+                      <input type="checkbox" class="child-checkbox-tab" data-child-id="${child.id}" 
+                             style="width: 18px; height: 18px; cursor: pointer;"
+                             ${this.selectedChildrenTab && this.selectedChildrenTab.has(child.id) ? 'checked' : ''}>
+                    </td>
                     <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">${idx + 1}</td>
                     <td style="padding: 1rem;">
                       <div style="font-weight: 600; color: #111827;">${child.first_name} ${child.last_name}</div>
@@ -3716,6 +5291,38 @@ const DashboardNav = {
         this.showParentLinkingModal(childId, childName);
       });
     });
+
+    // Attach checkbox event listeners
+    const checkboxes = document.querySelectorAll('.child-checkbox-tab');
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        const childId = e.target.getAttribute('data-child-id');
+        if (e.target.checked) {
+          this.selectedChildrenTab.add(childId);
+        } else {
+          this.selectedChildrenTab.delete(childId);
+        }
+        this.updateBulkActionsBarTab();
+      });
+    });
+
+    // Select all checkbox
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        checkboxes.forEach(cb => {
+          cb.checked = isChecked;
+          const childId = cb.getAttribute('data-child-id');
+          if (isChecked) {
+            this.selectedChildrenTab.add(childId);
+          } else {
+            this.selectedChildrenTab.delete(childId);
+          }
+        });
+        this.updateBulkActionsBarTab();
+      });
+    }
 
     // Load parents for all children
     this.loadParentsForChildren();

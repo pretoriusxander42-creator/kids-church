@@ -18,6 +18,7 @@ import checkinsRouter from './routes/checkins.js';
 import classesRouter from './routes/classes.js';
 import specialNeedsRouter from './routes/specialNeeds.js';
 import statisticsRouter from './routes/statistics.js';
+import settingsRouter from './routes/settings.js';
 
 dotenv.config();
 
@@ -122,6 +123,7 @@ app.use('/api/checkins', checkinsRouter);
 app.use('/api/classes', classesRouter);
 app.use('/api/special-needs', specialNeedsRouter);
 app.use('/api/statistics', statisticsRouter);
+app.use('/api/settings', settingsRouter);
 
 // Generic error handler
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

@@ -131,11 +131,21 @@ function hideRegisterError() {
 function showDashboard() {
     authSection.style.display = 'none';
     dashboardSection.style.display = 'block';
-    mainNav.style.display = 'flex';
+    
+    // Hide old header navigation (kept for backwards compatibility)
+    if (mainNav) mainNav.style.display = 'none';
 
     if (currentUser) {
-        welcomeMessage.textContent = `Welcome, ${currentUser.name || currentUser.email}`;
-        window.currentUser = currentUser; // Make user available to DashboardNav
+        if (welcomeMessage) {
+            welcomeMessage.textContent = `Welcome, ${currentUser.name || currentUser.email}`;
+        }
+        window.currentUser = currentUser; // Make user available globally
+    }
+    
+    // Initialize sidebar navigation
+    if (typeof SidebarNav !== 'undefined') {
+        SidebarNav.init();
+        SidebarNav.showSidebar();
     }
     
     // Initialize dashboard navigation
@@ -143,13 +153,123 @@ function showDashboard() {
         DashboardNav.init();
     }
     
-    console.log('Dashboard shown');
+    // Load and apply settings
+    loadAppSettings();
+    
+    console.log('Dashboard shown with sidebar navigation');
+}
+
+// Load settings from API and apply them
+async function loadAppSettings() {
+    try {
+        const result = await Utils.apiRequest('/api/settings');
+        
+        if (result.success && result.data) {
+            // The API response is wrapped by Utils.apiRequest, so we need result.data.data
+            const settings = result.data.data;
+            window.appSettings = settings;
+            
+            // Apply theme color
+            if (settings.display?.themeColor) {
+                applyThemeColor(settings.display.themeColor);
+            }
+            
+            // Apply dark mode
+            if (settings.display?.darkMode !== undefined) {
+                applyDarkMode(settings.display.darkMode);
+            }
+            
+            console.log('App settings loaded:', settings);
+        }
+    } catch (error) {
+        console.error('Failed to load app settings:', error);
+    }
+}
+
+// Apply theme color to CSS variables
+function applyThemeColor(color) {
+    const root = document.documentElement;
+    const colorMap = {
+        teal: { primary: '#14b8a6', primaryDark: '#0d9488' },
+        blue: { primary: '#3b82f6', primaryDark: '#2563eb' },
+        green: { primary: '#10b981', primaryDark: '#059669' },
+        purple: { primary: '#8b5cf6', primaryDark: '#7c3aed' },
+        orange: { primary: '#f97316', primaryDark: '#ea580c' }
+    };
+    
+    const colors = colorMap[color] || colorMap.teal;
+    root.style.setProperty('--color-primary', colors.primary);
+    root.style.setProperty('--color-primary-dark', colors.primaryDark);
+    root.style.setProperty('--primary-color', colors.primary);
+}
+
+// Apply dark mode to CSS variables
+function applyDarkMode(enabled) {
+    const root = document.documentElement;
+    
+    if (enabled) {
+        // Dark mode colors - softer, more professional
+        root.style.setProperty('--color-background', '#0f172a');
+        root.style.setProperty('--color-surface', '#1e293b');
+        root.style.setProperty('--color-text', '#f1f5f9');
+        root.style.setProperty('--color-text-secondary', '#94a3b8');
+        root.style.setProperty('--color-border', '#334155');
+        root.style.setProperty('--color-gray-50', '#0f172a');
+        root.style.setProperty('--color-gray-100', '#1e293b');
+        root.style.setProperty('--color-gray-200', '#334155');
+        root.style.setProperty('--color-gray-300', '#475569');
+        root.style.setProperty('--color-gray-400', '#64748b');
+        root.style.setProperty('--color-gray-500', '#94a3b8');
+        root.style.setProperty('--color-gray-600', '#cbd5e1');
+        root.style.setProperty('--color-gray-700', '#e2e8f0');
+        root.style.setProperty('--color-gray-800', '#f1f5f9');
+        root.style.setProperty('--color-gray-900', '#f8fafc');
+        
+        // Adjust shadows for dark mode
+        root.style.setProperty('--shadow-sm', '0 1px 2px 0 rgba(0, 0, 0, 0.5)');
+        root.style.setProperty('--shadow-md', '0 4px 6px -1px rgba(0, 0, 0, 0.5)');
+        root.style.setProperty('--shadow-lg', '0 10px 15px -3px rgba(0, 0, 0, 0.5)');
+        
+        // Add dark mode class to body
+        document.body.classList.add('dark-mode');
+    } else {
+        // Light mode colors (reset to defaults)
+        root.style.setProperty('--color-background', '#f8fafc');
+        root.style.setProperty('--color-surface', '#ffffff');
+        root.style.setProperty('--color-text', '#1e293b');
+        root.style.setProperty('--color-text-secondary', '#64748b');
+        root.style.setProperty('--color-border', '#e2e8f0');
+        root.style.setProperty('--color-gray-50', '#f8fafc');
+        root.style.setProperty('--color-gray-100', '#f1f5f9');
+        root.style.setProperty('--color-gray-200', '#e2e8f0');
+        root.style.setProperty('--color-gray-300', '#cbd5e1');
+        root.style.setProperty('--color-gray-400', '#94a3b8');
+        root.style.setProperty('--color-gray-500', '#64748b');
+        root.style.setProperty('--color-gray-600', '#475569');
+        root.style.setProperty('--color-gray-700', '#334155');
+        root.style.setProperty('--color-gray-800', '#1e293b');
+        root.style.setProperty('--color-gray-900', '#0f172a');
+        
+        // Reset shadows
+        root.style.setProperty('--shadow-sm', '0 1px 2px 0 rgba(0, 0, 0, 0.05)');
+        root.style.setProperty('--shadow-md', '0 4px 6px -1px rgba(0, 0, 0, 0.1)');
+        root.style.setProperty('--shadow-lg', '0 10px 15px -3px rgba(0, 0, 0, 0.1)');
+        
+        // Remove dark mode class from body
+        document.body.classList.remove('dark-mode');
+    }
 }
 
 function showAuth() {
     authSection.style.display = 'flex';
     dashboardSection.style.display = 'none';
-    mainNav.style.display = 'none';
+    if (mainNav) mainNav.style.display = 'none';
+    
+    // Hide sidebar navigation
+    if (typeof SidebarNav !== 'undefined') {
+        SidebarNav.hideSidebar();
+    }
+    
     currentUser = null;
     console.log('Auth form shown');
 }
