@@ -242,22 +242,60 @@ router.post('/link-parent', async (req, res) => {
     return res.status(400).json({ error: 'childId and parentId are required' });
   }
 
-  const { data, error } = await supabase
-    .from('parent_child_relationships')
-    .insert([{ 
-      parent_id: parentId, 
-      child_id: childId, 
-      relationship_type: relationshipType || 'parent',
-      is_authorized_pickup: authorizedPickup !== undefined ? authorizedPickup : true
-    }])
-    .select()
-    .single();
+  // Normalize relationship type to match DB CHECK constraint
+  const allowedTypes = ['mother', 'father', 'guardian', 'other'] as const;
+  const normalizedType = allowedTypes.includes(relationshipType)
+    ? relationshipType
+    : 'guardian';
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+  try {
+    // Insert without the authorized pickup column to avoid schema mismatch
+    const { data, error } = await supabase
+      .from('parent_child_relationships')
+      .insert([{ 
+        parent_id: parentId, 
+        child_id: childId, 
+        relationship_type: normalizedType
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[link-parent] Insert error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Optional: try to update whichever column exists to reflect authorizedPickup preference
+    // This is best-effort and will silently skip if schema differs
+    if (typeof authorizedPickup === 'boolean') {
+      const updatePayloads = [
+        { is_primary_contact: authorizedPickup },
+        { is_authorized_pickup: authorizedPickup },
+      ];
+      let updateSuccess = false;
+      for (const payload of updatePayloads) {
+        const { error: updErr } = await supabase
+          .from('parent_child_relationships')
+          .update(payload as any)
+          .eq('parent_id', parentId)
+          .eq('child_id', childId);
+        if (updErr) {
+          console.error(`[link-parent] Update failed for payload ${JSON.stringify(payload)}:`, updErr);
+        } else {
+          updateSuccess = true;
+          break;
+        }
+      }
+      if (!updateSuccess) {
+        console.warn('[link-parent] Could not update authorized pickup column. Table may not have either column.');
+      }
+    }
+
+    return res.status(201).json({ message: 'Child linked to parent successfully', data });
+  } catch (e: any) {
+    console.error('[link-parent] Unexpected error:', e);
+    return res.status(500).json({ error: e?.message || 'Unexpected server error' });
   }
-
-  return res.status(201).json({ message: 'Child linked to parent successfully', data });
 });
 
 export default router;

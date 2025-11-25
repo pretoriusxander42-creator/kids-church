@@ -74,13 +74,15 @@ router.get('/:id/children', async (req, res) => {
       children (*)
     `)
     .eq('class_id', id)
-    .eq('status', 'active');
+    .eq('is_active', true);
 
   if (error) {
     return res.status(500).json({ error: error.message });
   }
 
-  return res.json(data);
+  // Flatten to array of child objects for frontend compatibility
+  const children = (data || []).map(row => row.children).filter(Boolean);
+  return res.json(children);
 });
 
 // GET current attendance for class
@@ -214,11 +216,11 @@ router.post('/assign', async (req, res) => {
     .select('*')
     .eq('child_id', childId)
     .eq('class_id', classId)
-    .eq('status', 'active')
+    .eq('is_active', true)
     .single();
 
   if (existing) {
-    return res.json({ message: 'Child already assigned to this class', data: existing });
+    return res.json({ success: true, message: 'Child already assigned to this class', data: existing });
   }
 
   const { data, error } = await supabase
@@ -226,17 +228,17 @@ router.post('/assign', async (req, res) => {
     .insert([{ 
       child_id: childId, 
       class_id: classId,
-      status: 'active',
-      assigned_at: new Date().toISOString()
+      is_active: true,
+      assigned_date: new Date().toISOString().slice(0, 10)
     }])
     .select()
     .single();
 
   if (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 
-  return res.status(201).json({ message: 'Child assigned to class successfully', data });
+  return res.status(201).json({ success: true, message: 'Child assigned to class successfully', data });
 });
 
 export default router;

@@ -111,7 +111,9 @@ const Utils = {
 
     // Stringify body if it's an object and not already a string
     if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
+      console.log('[Utils] Stringifying body for', endpoint, ':', config.body);
       config.body = JSON.stringify(config.body);
+      console.log('[Utils] Stringified body:', config.body);
     }
 
     try {

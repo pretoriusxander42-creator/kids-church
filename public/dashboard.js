@@ -889,21 +889,27 @@ const DashboardNav = {
         </thead>
         <tbody>
           ${children.map(child => {
-            const age = child.date_of_birth ? this.calculateAge(child.date_of_birth) : 'N/A';
+            // Removed duplicate age declaration; use nested children object below
             const isCheckedIn = checkedInMap[child.id];
             const statusColor = isCheckedIn ? '#10b981' : '#6b7280';
             const statusText = isCheckedIn ? 'Checked In' : 'Not Checked In';
             
+            const firstName = child.first_name || '';
+            const lastName = child.last_name || '';
+            const allergies = child.allergies || '';
+            const specialNeeds = child.special_needs || false;
+            const dob = child.date_of_birth || null;
+            const age = dob ? this.calculateAge(dob) : 'N/A';
             return `
-              <tr class="class-board-child-row" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}" style="border-bottom: 1px solid #f3f4f6;">
+              <tr class="class-board-child-row" data-child-id="${child.id}" data-child-name="${firstName} ${lastName}" style="border-bottom: 1px solid #f3f4f6;">
                 <td style="padding: 1rem;">
-                  <div style="font-weight: 600; color: #111827;">${child.first_name} ${child.last_name}</div>
-                  ${child.special_needs ? '<div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 0.25rem;">⭐ Special Needs</div>' : ''}
+                  <div style="font-weight: 600; color: #111827;">${firstName} ${lastName}</div>
+                  ${specialNeeds ? '<div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 0.25rem;">⭐ Special Needs</div>' : ''}
                 </td>
                 <td style="padding: 1rem; color: #6b7280;">${age} years</td>
                 <td style="padding: 1rem;">
-                  ${child.allergies 
-                    ? `<span style="color: #dc2626; font-weight: 500;">⚠️ ${child.allergies}</span>`
+                  ${allergies 
+                    ? `<span style="color: #dc2626; font-weight: 500;">⚠️ ${allergies}</span>`
                     : `<span style="color: #9ca3af;">None</span>`
                   }
                 </td>
@@ -914,7 +920,7 @@ const DashboardNav = {
                 </td>
                 <td style="padding: 1rem; text-align: center;">
                   ${!isCheckedIn 
-                    ? `<button class="btn-primary class-board-checkin-btn" data-child-id="${child.id}" data-child-name="${child.first_name} ${child.last_name}" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Check In</button>`
+                    ? `<button class="btn-primary class-board-checkin-btn" data-child-id="${child.id}" data-child-name="${firstName} ${lastName}" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Check In</button>`
                     : `<button class="btn-secondary" disabled style="padding: 0.5rem 1rem; font-size: 0.9rem; opacity: 0.6; cursor: not-allowed;">Checked In</button>`
                   }
                 </td>
@@ -1744,7 +1750,14 @@ const DashboardNav = {
         throw new Error(parentResult.error || 'Failed to create parent');
       }
 
-      const parentId = parentResult.data.id;
+      const parentId = parentResult.data.data.id;
+
+      if (!parentId) {
+        console.error('[FTV] Parent result:', parentResult);
+        throw new Error('Parent created but ID not returned');
+      }
+
+      console.log('[FTV] Created parent:', parentId);
 
       // 2. Create child
       const childResult = await Utils.apiRequest('/api/children', {
@@ -1763,10 +1776,16 @@ const DashboardNav = {
         throw new Error(childResult.error || 'Failed to register child');
       }
 
-      const childId = childResult.data.id;
+      const childId = childResult.data.data.id;
+
+      if (!childId || !parentId) {
+        throw new Error('Failed to get child or parent ID');
+      }
+
+      console.log('[FTV] Created child:', childId, 'parent:', parentId);
 
       // 3. Link parent to child
-      await Utils.apiRequest('/api/children/link-parent', {
+      const linkResult = await Utils.apiRequest('/api/children/link-parent', {
         method: 'POST',
         body: {
           childId,
@@ -1776,14 +1795,28 @@ const DashboardNav = {
         }
       });
 
+      if (!linkResult.success) {
+        console.error('[FTV] Link failed:', linkResult.error);
+        throw new Error(linkResult.error || 'Failed to link parent to child');
+      }
+
+      console.log('[FTV] Linked parent to child');
+
       // 4. Assign to class
-      await Utils.apiRequest('/api/classes/assign', {
+      const assignResult = await Utils.apiRequest('/api/classes/assign', {
         method: 'POST',
         body: {
           classId,
           childId
         }
       });
+
+      if (!assignResult.success) {
+        console.error('[FTV] Assign failed:', assignResult.error);
+        throw new Error(assignResult.error || 'Failed to assign to class');
+      }
+
+      console.log('[FTV] Assigned to class');
 
       // 5. Check-in the child
       const checkInResult = await Utils.apiRequest('/api/checkins', {
@@ -2432,23 +2465,44 @@ const DashboardNav = {
       }
 
       container.innerHTML = ftvChildren.map(ci => `
-        <div class="ftv-card">
+        <div class="ftv-card" style="position: relative;">
           <h3>${ci.children.first_name} ${ci.children.last_name}</h3>
           <p><strong>Age:</strong> ${this.calculateAge(ci.children.date_of_birth)} years</p>
           <p><strong>Checked in:</strong> ${Utils.formatTime(ci.check_in_time)}</p>
           <p><strong>Parent Contact:</strong> ${ci.parents?.phone_number || ci.parents?.email || 'N/A'}</p>
+          ${ci.children.allergies ? `<p style="color: #dc2626;"><strong>⚠️ Allergies:</strong> ${ci.children.allergies}</p>` : ''}
+          <div style="margin-top: 1rem;">
+            <button class="btn-secondary ftv-assign-class-btn" data-child-id="${ci.children.id}" data-child-name="${ci.children.first_name} ${ci.children.last_name}" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 0.5rem;">
+                <path d="M14 5.33334H10.6667C10.1362 5.33334 9.62753 5.54405 9.25246 5.91913C8.87738 6.2942 8.66667 6.80291 8.66667 7.33334V14C8.66667 13.2928 8.94762 12.6145 9.4477 12.1144C9.94781 11.6143 10.6261 11.3333 11.3333 11.3333H14V5.33334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 1.33334H5.33333C5.86377 1.33334 6.37247 1.54405 6.74755 1.91913C7.12262 2.2942 7.33333 2.80291 7.33333 3.33334V14C7.33333 13.2928 7.05238 12.6145 6.5523 12.1144C6.05219 11.6143 5.37391 11.3333 4.66667 11.3333H2V1.33334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Assign to Class
+            </button>
+          </div>
         </div>
       `).join('');
+
+      // Attach click handlers to assign buttons
+      setTimeout(() => {
+        document.querySelectorAll('.ftv-assign-class-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const childId = btn.dataset.childId;
+            const childName = btn.dataset.childName;
+            this.showAssignClassModal(childId, childName);
+          });
+        });
+      }, 0);
     } else {
       Utils.showError(container, 'Failed to load first-time visitors', 'DashboardNav.loadFTVChildren()');
     }
   },
 
   async showFTVCheckInModal() {
-    // Get FTV classes
+    // Get all active classes (regular classrooms where FTV children can be checked in)
     const classesResult = await Utils.apiRequest('/api/classes');
     const ftvClasses = classesResult.success 
-      ? classesResult.data.filter(cls => cls.type === 'ftv')
+      ? classesResult.data.filter(cls => cls.is_active && cls.type === 'regular')
       : [];
 
     const modal = document.createElement('div');
@@ -2562,7 +2616,14 @@ const DashboardNav = {
         throw new Error(parentResult.error || 'Failed to create parent');
       }
 
-      const parentId = parentResult.data.id;
+      const parentId = parentResult.data.data.id;
+
+      if (!parentId) {
+        console.error('[FTV] Parent result:', parentResult);
+        throw new Error('Parent created but ID not returned');
+      }
+
+      console.log('[FTV] Created parent:', parentId);
 
       // 2. Create child
       const childResult = await Utils.apiRequest('/api/children', {
@@ -2581,10 +2642,16 @@ const DashboardNav = {
         throw new Error(childResult.error || 'Failed to register child');
       }
 
-      const childId = childResult.data.id;
+      const childId = childResult.data.data.id;
+
+      if (!childId || !parentId) {
+        throw new Error('Failed to get child or parent ID');
+      }
+
+      console.log('[FTV] Created child:', childId, 'parent:', parentId);
 
       // 3. Link parent to child
-      await Utils.apiRequest('/api/children/link-parent', {
+      const linkResult = await Utils.apiRequest('/api/children/link-parent', {
         method: 'POST',
         body: {
           childId,
@@ -6285,7 +6352,7 @@ const DashboardNav = {
         }
 
         results.childrenCreated++;
-        const childId = childResult.data.id;
+        const childId = childResult.data.data.id;
 
         // Create parent if provided with multiple column name variations
         const parentName = normalizedRow['parent name'] || 
@@ -6320,7 +6387,7 @@ const DashboardNav = {
 
           if (parentResult.success) {
             results.parentsCreated++;
-            const parentId = parentResult.data.id;
+            const parentId = parentResult.data.data.id;
 
             // Link parent to child
             await Utils.apiRequest('/api/relationships', {
