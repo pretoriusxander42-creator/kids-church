@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fine Dining Restaurant Web Application
+
+A modern, full-stack restaurant web application built with Next.js 14, TypeScript, Tailwind CSS, MongoDB, and Framer Motion.
+
+## Features
+
+### ✨ Core Functionality
+- **Homepage** with hero section, featured dishes, and upcoming events
+- **Menu Page** with flip-card animations for each dish
+- **Reservations** with multi-step form and validation
+- **Events Page** with expandable event cards
+- **Gallery** with horizontal scroll and lightbox view
+- **About Page** with restaurant story and chef profile
+- **Contact Page** with form and location details
+- **Style Guide** for design system reference
+
+### 🎨 Design
+- Dark theme with gold accents
+- Floating navigation bar with blur effect
+- Smooth page transitions with Framer Motion
+- Responsive design for mobile, tablet, and desktop
+- Custom typography (Inter + Playfair Display)
+
+### 🗄️ Database & API
+- MongoDB with Mongoose ODM
+- RESTful API endpoints for Menu, Reservations, Events
+- Data models: Reservation, Event, MenuCategory, MenuItem
+- Global connection caching for serverless optimization
+
+### 🛠️ Tech Stack
+- **Framework:** Next.js 14 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4
+- **Animations:** Framer Motion
+- **Database:** MongoDB + Mongoose
+- **Email:** Nodemailer (configured, not fully wired)
+- **Testing:** Jest + React Testing Library
+- **Code Quality:** ESLint + Prettier
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+- MongoDB database (local or Atlas)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Installation
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. **Set up environment variables**
+   Copy `.env.example` to `.env.local` and edit with your values:
+   ```env
+   MONGODB_URI=your_mongodb_connection_string
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. **Run development server**
+   ```bash
+   npm run dev
+   ```
 
-## Learn More
+   Open [http://localhost:3000](http://localhost:3000)
 
-To learn more about Next.js, take a look at the following resources:
+## Available Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production  
+- `npm start` - Start production server
+- `npm test` - Run Jest tests
+- `npm run lint` - Run ESLint
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+### Vercel (Recommended)
+1. Push to GitHub
+2. Import on [vercel.com](https://vercel.com)
+3. Set environment variables
+4. Deploy!
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Build command:** `npm run build`  
+**Start command:** `npm start`  
+**Node version:** 18+
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+MIT
