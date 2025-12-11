@@ -39,6 +39,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate guests is a valid number
+    const guestsNum = parseInt(guests, 10);
+    if (isNaN(guestsNum) || guestsNum < 1 || guestsNum > 20) {
+      return NextResponse.json(
+        { error: 'Number of guests must be between 1 and 20' },
+        { status: 400 }
+      );
+    }
+
     // Combine date and time into a Date object
     const dateTime = new Date(`${date}T${time}`);
 
@@ -55,7 +64,7 @@ export async function POST(request: NextRequest) {
       email,
       phone,
       date: dateTime,
-      guests: parseInt(guests, 10),
+      guests: guestsNum,
       occasion: occasion || '',
       notes: notes || '',
       status: 'pending',
